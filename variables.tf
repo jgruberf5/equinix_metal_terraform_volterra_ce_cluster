@@ -152,14 +152,6 @@ variable "volterra_internal_cidr" {
 }
 
 ##################################################################################
-# Volterra CE Internal Subnet Gateway VIP Address
-##################################################################################
-variable "volterra_internal_gateway_address" {
-  default     = ""
-  description = "Volterra CE Internal Subnet Gateway VIP Address"
-}
-
-##################################################################################
 # Volterra CE Reachable Subnet CIDRs
 ##################################################################################
 variable "volterra_reachable_networks" {
