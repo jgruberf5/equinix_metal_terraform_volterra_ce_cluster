@@ -38,6 +38,86 @@ variable "plan" {
   description = "Equinix Instance Plan"
 }
 
+##################################################################################
+# The Volterra tenant (group) name
+##################################################################################
+variable "volterra_tenant" {
+  type        = string
+  default     = ""
+  description = "The Volterra tenant (group) name"
+}
+
+##################################################################################
+# The Volterra Site name for this site
+##################################################################################
+variable "volterra_site_name" {
+  type        = string
+  default     = ""
+  description = "The Volterra Site name for this site"
+}
+
+##################################################################################
+# The Volterra Fleet label for this site
+##################################################################################
+variable "volterra_fleet_label" {
+  type        = string
+  default     = ""
+  description = "The Volterra Fleet label for this VPC"
+}
+
+##################################################################################
+# The API token to use to register with Volterra
+##################################################################################
+variable "volterra_api_token" {
+  type        = string
+  default     = ""
+  description = "The API token to use to register with Volterra"
+}
+
+##################################################################################
+# The Volterra cluster size
+##################################################################################
+variable "volterra_cluster_size" {
+  type        = number
+  default     = 3
+  description = "The Volterra cluster size"
+}
+
+##################################################################################
+# voltstack - Include voltstack
+##################################################################################
+variable "volterra_voltstack" {
+  type        = bool
+  default     = false
+  description = "Include voltstack"
+}
+
+##################################################################################
+# The password for the built-in admin Volterra user
+##################################################################################
+variable "volterra_admin_password" {
+  type        = string
+  default     = ""
+  description = "The password for the built-in admin Volterra user"
+}
+
+##################################################################################
+# Use SSL tunnels to connect to Volterra
+##################################################################################
+variable "volterra_ssl_tunnels" {
+  type        = bool
+  default     = false
+  description = "Use SSL tunnels to connect to Volterra"
+}
+
+##################################################################################
+# Use IPSEC tunnels to connect to Volterra
+##################################################################################
+variable "volterra_ipsec_tunnels" {
+  type        = bool
+  default     = true
+  description = "Use IPSEC tunnels to connect to Volterra"
+}
 
 ##################################################################################
 # Volterra CE Download URL
@@ -47,3 +127,26 @@ variable "volterra_download_url" {
   description = "Volterra CE Download URL"
 }
 
+##################################################################################
+# Volterra CE External IP
+##################################################################################
+variable "volterra_external_ip" {
+  default     = ""
+  description = "Volterra CE External IP"
+}
+
+##################################################################################
+# Volterra CE Internal VLAN ID
+##################################################################################
+variable "volterra_internal_vlan_id" {
+  default     = ""
+  description = "Volterra CE Internal VLAN ID"
+}
+
+##################################################################################
+# Volterra CE Internal IP
+##################################################################################
+variable "volterra_internal_ip" {
+  default     = ""
+  description = "Volterra CE Internal IP"
+}
