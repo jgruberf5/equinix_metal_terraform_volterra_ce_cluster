@@ -1,0 +1,9 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - qemu-kvm
+  - libvirt
+  - virt-install
+  - bridge-utils
+package_reboot_if_required: true

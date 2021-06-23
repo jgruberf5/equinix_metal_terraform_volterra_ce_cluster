@@ -128,11 +128,11 @@ variable "volterra_download_url" {
 }
 
 ##################################################################################
-# Volterra CE External IP
+# Volterra CE External Subnet CIDR
 ##################################################################################
-variable "volterra_external_ip" {
+variable "volterra_external_cidr" {
   default     = ""
-  description = "Volterra CE External IP"
+  description = "Volterra CE External Subnet CIDR"
 }
 
 ##################################################################################
@@ -144,9 +144,25 @@ variable "volterra_internal_vlan_id" {
 }
 
 ##################################################################################
-# Volterra CE Internal IP
+# Volterra CE Internal Subnet CIDR
 ##################################################################################
-variable "volterra_internal_ip" {
+variable "volterra_internal_cidr" {
   default     = ""
-  description = "Volterra CE Internal IP"
+  description = "Volterra CE Internal Subnet CIDR"
+}
+
+##################################################################################
+# Volterra CE Internal Subnet Gateway VIP Address
+##################################################################################
+variable "volterra_internal_gateway_address" {
+  default     = ""
+  description = "Volterra CE Internal Subnet Gateway VIP Address"
+}
+
+##################################################################################
+# Volterra CE Reachable Subnet CIDRs
+##################################################################################
+variable "volterra_reachable_networks" {
+  default     = ""
+  description = "Volterra CE Reachable Subnet CIDRs"
 }
