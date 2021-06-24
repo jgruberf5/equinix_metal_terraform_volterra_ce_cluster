@@ -49,11 +49,11 @@ write_files:
               # Voltstack sites automatically create the fleet label
               # ves.io/fleet: ${fleet_label}
             StaticIpConfiguration:
-              SiteLocalIp: ${external_ip_cidr}
-              SiteLocalGw: ${external_gw}
+              SiteLocalIp: __ETH0_IP_CIDR__
+              SiteLocalGw: __ETH0_IP_GW__
               # Voltstack sites only support 1 NIC
-              # SiteLocalInsideIp: ${internal_ip_cidr}
-              # SiteLocalInsideGw: $(internal_gw)
+              # SiteLocalInsideIp: __ETH1_IP_CIDR__
+              # SiteLocalInsideGw: __ETH1_IP_GW__
       bootcmd:
         - /usr/bin/touch /etc/vpm/passwdchanged
   - path: /etc/ce_domain.xml

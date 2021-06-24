@@ -163,7 +163,7 @@ resource "metal_device" "ce_instance" {
   billing_cycle    = "hourly"
   ip_address {
     type             = "public_ipv4"
-    cidr             = data.metal_reserved_ip_block.ce_external_network.quantity
+    cidr             = 31
     reservation_ids = [data.metal_reserved_ip_block.ce_external_network.id]
   }
   ip_address {
