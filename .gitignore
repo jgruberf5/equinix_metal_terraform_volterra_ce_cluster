@@ -6,6 +6,11 @@
 *.tfstate.*
 # local variable files
 *.tfvars
+.terraform.lock.hcl
+
+# local certificates
+*.p12
+auth.env
 
 # Crash log files
 crash.log

@@ -1,0 +1,143 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - qemu-kvm
+  - libvirt
+  - virt-install
+  - bridge-utils
+package_reboot_if_required: true
+write_files:
+  - path: /etc/ce_userdata.yaml
+    permission: '0644'
+    content: |
+      #cloud-config
+      chpasswd:
+        expire: false
+        list: |
+          admin:${admin_password}
+      write_files:
+      - path: /etc/vpm/basic-auth.json
+        permissions: '0644'
+        content: |
+          [{"username": "admin", "password": "${admin_password}"}]
+      - path: /etc/vpm/config.yaml
+        permissions: '0644'
+        content: |
+          Kubernetes:
+            EtcdUseTLS: True
+            Server: vip
+            CloudProvider: Equinix
+          Vpm:
+            ClusterName: ${cluster_name}
+            CertifiedHardware: ${certified_hardware}
+            ClusterType: ce
+            Config: /etc/vpm/config.yaml
+            PrivateNIC: eth0
+            # Voltstack sites only support 1 NIC
+            # InsideNIC: ${inside_nic}
+            Latitude: ${latitude}
+            Longitude: ${longitude}
+            MauriceEndpoint: https://register.ves.volterra.io
+            MauricePrivateEndpoint: https://register-tls.ves.volterra.io
+            Token: ${site_token}
+            Labels:
+              provider: Equinix
+              region: ${region}
+              hw-model: ${profile}
+              hw-vendor: ibm-vpc-gen2
+              # Voltstack sites automatically create the fleet label
+              # ves.io/fleet: ${fleet_label}
+            StaticIpConfiguration:
+              SiteLocalIp: ${external_ip_cidr}
+              SiteLocalGw: ${external_gw}
+              # Voltstack sites only support 1 NIC
+              # SiteLocalInsideIp: ${internal_ip_cidr}
+              # SiteLocalInsideGw: $(internal_gw)
+      bootcmd:
+        - /usr/bin/touch /etc/vpm/passwdchanged
+  - path: /etc/ce_domain.xml
+    permission: '0644'
+    content: |
+      <domain type='kvm'>
+        <name>${hostname}</name>
+        <uuid>__SERIAL_NUMBER__</uuid>
+        <memory unit='KiB'>__VE_RAM__</memory>
+        <currentMemory unit='KiB'>__VE_RAM__</currentMemory>
+        <vcpu placement='static'>__VE_CPUS__</vcpu>
+        <os>
+          <type arch='x86_64' machine='pc-i440fx-rhel7.0.0'>hvm</type>
+          <boot dev='hd'/>
+        </os>
+        <cpu mode='custom' match='exact'>
+          <model fallback='allow'>Haswell-noTSX</model>
+        </cpu>
+        <pm>
+          <suspend-to-mem enabled='no'/>
+          <suspend-to-disk enabled='no'/>
+        </pm>
+        <devices>
+          <emulator>/usr/libexec/qemu-kvm</emulator>
+          <disk type='file' device='disk'>
+            <driver name='qemu' type='qcow2'/>
+            <source file='/var/lib/libvirt/images/ce.qcow2'/>
+            <target dev='vda' bus='virtio'/>
+          </disk>
+          <disk type='file' device='cdrom'>
+            <driver name='qemu' type='raw'/>
+            <source file='/var/lib/libvirt/images/config.iso'/>
+            <target dev='hdd' bus='ide'/>
+            <readonly/>
+          </disk>
+          <controller type='usb' index='0' model='ich9-ehci1'>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x7'/>
+          </controller>
+          <controller type='pci' index='0' model='pci-root'/>
+          <controller type='ide' index='0'>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x1'/>
+          </controller>
+          <controller type='virtio-serial' index='0'>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+          </controller>
+          <interface type='direct'>
+            <mac address='__PRIVATE_MAC_ADDRESS__'/>
+            <source dev='__PRIVATE_HOST_INTERFACE__' mode='bridge'/>
+            <model type='virtio'/>
+            <driver name='vhost' queues='__VIRTIO_NIC_QUEUES__'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+          </interface>
+          <interface type='direct'>
+            <mac address='__PUBLIC_MAC_ADDRESS__'/>
+            <source dev='__PUBLIC_MAC_INTERFACE__' mode='bridge'/>
+            <model type='virtio'/>
+            <driver name='vhost' queues='__VIRTIO_NIC_QUEUES__'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
+          </interface>
+          <serial type='pty'>
+            <target port='0'/>
+          </serial>
+          <console type='pty'>
+            <target type='serial' port='0'/>
+          </console>
+          <channel type='unix'>
+            <source mode='bind' path='/var/lib/libvirt/qemu/channel/target/domain-${hostname}/org.qemu.guest_agent.0'/>
+            <target type='virtio' name='org.qemu.guest_agent.0'/>
+            <address type='virtio-serial' controller='0' bus='0' port='1'/>
+          </channel>
+          <video>
+            <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
+          </video>
+         <memballoon model='virtio'>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x09' function='0x0'/>
+          </memballoon>
+        </devices>
+      </domain>
+  - path: /sbin/create_ce_from_metal.sh
+    permission: '0744'
+    content: |
+      #!/bin/bash
+
+      echo "do something cool"
+bootcmd:
+  - bash /sbin/create_ce_from_metal.sh

@@ -4,6 +4,9 @@ terraform {
       source = "equinix/metal"
       # version = "1.0.0"
     }
+    volterra = {
+      source = "volterraedge/volterra"
+    }
   }
 }
 
@@ -12,6 +15,6 @@ provider "metal" {
   auth_token = var.auth_token
 }
 
-data "metal_project" "project" {
-  name = var.project_name
+provider "volterra" {
+  url          = "https://${var.volterra_tenant}.console.ves.volterra.io/api"
 }

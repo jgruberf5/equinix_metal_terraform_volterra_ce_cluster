@@ -66,15 +66,6 @@ variable "volterra_fleet_label" {
 }
 
 ##################################################################################
-# The API token to use to register with Volterra
-##################################################################################
-variable "volterra_api_token" {
-  type        = string
-  default     = ""
-  description = "The API token to use to register with Volterra"
-}
-
-##################################################################################
 # The Volterra cluster size
 ##################################################################################
 variable "volterra_cluster_size" {
