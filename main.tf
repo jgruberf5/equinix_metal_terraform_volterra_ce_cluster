@@ -117,7 +117,7 @@ locals {
 
 data "metal_reserved_ip_block" "ce_external_network" {
   project_id = var.project_id
-  ip_address    = cidrhost(var.volterra_external_cidr, 1)
+  ip_address = cidrhost(var.volterra_external_cidr, 1)
 }
 
 resource "volterra_token" "volterra_site_token" {
@@ -162,8 +162,8 @@ resource "metal_device" "ce_instance" {
   operating_system = "centos_7"
   billing_cycle    = "hourly"
   ip_address {
-    type             = "public_ipv4"
-    cidr             = 31
+    type            = "public_ipv4"
+    cidr            = 31
     reservation_ids = [data.metal_reserved_ip_block.ce_external_network.id]
   }
   ip_address {
@@ -180,7 +180,7 @@ resource "metal_device_network_type" "ce_network_type" {
 
 resource "metal_port_vlan_attachment" "ce_internal_vlan" {
   count     = var.volterra_cluster_size
-  device_id = metal_device.ce_instance[count.index].id
+  device_id = metal_device_network_type.ce_network_type[count.index].id
   port_name = "eth1"
   vlan_vnid = metal_vlan.ce_internal_vlan.vxlan
 }
