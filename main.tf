@@ -17,6 +17,28 @@ locals {
     voltstack = "${path.module}/volterra_voltstack_ce.yaml",
     voltmesh  = "${path.module}/volterra_voltmesh_ce.yaml"
   }
+  plan_map = {
+    "c3.small.x86" = {
+      "ce_count" = 2,
+      "ce_vpus" = 4,
+      "ce_ram" = 15728640
+    },
+    "c3.medium.x86" = {
+      "ce_count" = 3,
+      "ce_vpus" = 8,
+      "ce_ram" = 20971520
+    }
+  }
+  reserved_ip_quantity_map = {
+    "c3.small.x86" = {
+      "quantity" = var.server_count > 4 ? 32 : 16
+      "cidr" = 30
+    },
+    "c3.medium.x86" = {
+      "quantity" = var.server_count > 4 ? 32 : 16
+      "cidr" = 30
+    }
+  }
   facility_location_map = {
     "am" = {
       # Amsterdam
@@ -42,11 +64,6 @@ locals {
       # New York
       "latitude"  = "40.7127",
       "longitude" = "-74.0059"
-    },
-    "sv" = {
-      # Silicon Valley
-      "latitude"  = "37.3382",
-      "longitude" = "-121.8863"
     },
     "sg" = {
       # Singapore
@@ -113,74 +130,109 @@ locals {
   inside_nic         = var.volterra_voltstack ? "eth0" : "eth1"
   certified_hardware = element(local.certified_hardware_map[local.which_stack].*, 1)
   template_file      = file(local.template_map[local.which_stack])
+  total_ces = lookup(local.plan_map, var.plan).ce_count * var.server_count
+  ce_count = lookup(local.plan_map, var.plan).ce_count
+  ce_vpus = lookup(local.plan_map, var.plan).ce_vpus
+  ce_ram = lookup(local.plan_map, var.plan).ce_ram
+  cidr_subnets = metal_reserved_ip_block.ce_external_network.cidr == 28 ? cidrsubnets(metal_reserved_ip_block.ce_external_network.cidr_notation, 2, 2, 2, 2) : cidrsubnets(metal_reserved_ip_block.ce_external_network.cidr_notation, 3, 3, 3, 3, 3, 3, 3, 3, 3)
 }
 
-data "metal_reserved_ip_block" "ce_external_network" {
+resource "metal_reserved_ip_block" "ce_external_network" {
   project_id = var.project_id
-  ip_address = cidrhost(var.volterra_external_cidr, 1)
+  type = "public_ipv4"
+  metro = substr(var.facility, 0, 2)
+  quantity = lookup(local.reserved_ip_quantity_map, var.plan).quantity
+  description = "Volterra Site ${var.volterra_site_name}"
 }
 
+
+# Create an Volterra Site Token
 resource "volterra_token" "volterra_site_token" {
   name        = var.volterra_site_name
   namespace   = "system"
   description = "Site Authorization Token for ${var.volterra_site_name}"
-  disable     = false
 }
 
 # TODO: add other volterra objects to create for the site here
 
+
+# Create all the configuration files for the deployment
+resource "random_uuid" "serial_number_seed" {
+}
+
 data "template_file" "user_data" {
-  count    = var.volterra_cluster_size
+  count    = var.server_count
   template = local.template_file
   vars = {
-    hostname           = "${var.volterra_site_name}-vce-${count.index}"
+    host_index         = count.index + 1
+    host_count         = var.server_count
+    hostname           = "${var.volterra_site_name}-metal-${count.index}"
     admin_password     = local.admin_password
     cluster_name       = var.volterra_site_name
     fleet_label        = var.volterra_fleet_label
     certified_hardware = local.certified_hardware
     latitude           = lookup(local.facility_location_map, substr(var.facility, 0, 2)).latitude
     longitude          = lookup(local.facility_location_map, substr(var.facility, 0, 2)).longitude
-    site_token         = volterra_token.volterra_site_token.id
+    site_token         = "a06d8631-eacc-4d64-8009-4d349a8540d8"
     profile            = var.plan
     inside_nic         = local.inside_nic
     region             = var.facility
+    ce_count           = local.ce_count
+    vcpus              = local.ce_vpus
+    ram                = local.ce_ram
+    serial_prefix      = substr(random_uuid.serial_number_seed.result, 0, -3)
+    external_cidr      = var.volterra_external_cidr
+    internal_cidr      = var.volterra_internal_cidr
+    internal_vlan_id   = metal_vlan.ce_internal_vlan.vxlan
+    ce_download_url    = var.volterra_download_url
+    eips_cidr          = local.cidr_subnets[count.index]
   }
   depends_on = [volterra_token.volterra_site_token]
 }
 
-resource "metal_vlan" "ce_internal_vlan" {
-  facility   = var.facility
+data "metal_project_ssh_key" "project_ssh_key" {
+  search     = "jgruber"
   project_id = var.project_id
 }
 
+# Create the Hypervisor Hosts
 resource "metal_device" "ce_instance" {
-  count            = var.volterra_cluster_size
-  hostname         = "${var.volterra_site_name}-vce-${count.index}"
+  count            = var.server_count
+  hostname         = "${var.volterra_site_name}-metal-${count.index}"
   project_id       = var.project_id
   facilities       = [var.facility]
   plan             = var.plan
   operating_system = "centos_7"
   billing_cycle    = "hourly"
-  ip_address {
-    type            = "public_ipv4"
-    cidr            = 31
-    reservation_ids = [data.metal_reserved_ip_block.ce_external_network.id]
-  }
-  ip_address {
-    type = "private_ipv4"
-  }
+  project_ssh_key_ids = [ data.metal_project_ssh_key.project_ssh_key.id ]
   user_data = data.template_file.user_data[count.index].rendered
 }
 
+# Create routes (EIPs) for CE external NATs
+resource "metal_ip_attachment" "external_EIPs" {
+  count            = var.server_count
+  device_id        = metal_device.ce_instance[count.index].id
+  cidr_notation    = local.cidr_subnets[count.index]
+}
+
+# Provision the switch enviorment for hybrid-bonded mode deployment
 resource "metal_device_network_type" "ce_network_type" {
-  count     = var.volterra_cluster_size
+  count     = var.server_count
   device_id = metal_device.ce_instance[count.index].id
   type      = "hybrid"
 }
 
+# Create an internal VLAN allowed on the bonded ports
+resource "metal_vlan" "ce_internal_vlan" {
+  facility   = var.facility
+  project_id = var.project_id
+}
+
+# Attach the internal VLAN to the bond0 interface
 resource "metal_port_vlan_attachment" "ce_internal_vlan" {
-  count     = var.volterra_cluster_size
+  count     = var.server_count
   device_id = metal_device_network_type.ce_network_type[count.index].id
-  port_name = "eth1"
+  port_name = "bond0"
   vlan_vnid = metal_vlan.ce_internal_vlan.vxlan
 }
+

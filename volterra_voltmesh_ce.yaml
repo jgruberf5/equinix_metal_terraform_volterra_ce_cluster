@@ -6,9 +6,12 @@ packages:
   - libvirt
   - virt-install
   - bridge-utils
+  - genisoimage
+  - syslinux
+  - iptables-services
 package_reboot_if_required: true
 write_files:
-  - path: /etc/ce_userdata.yaml
+  - path: /etc/ce_userdata_template.yaml
     permission: '0644'
     content: |
       #cloud-config
@@ -16,59 +19,70 @@ write_files:
         expire: false
         list: |
           admin:${admin_password}
+      ssh_authorized_keys:
+        - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC9OJ+5GlA0AkOi7FNtRxabTvMGP20rAVnJSaV64GKqiu6EOhGm/wUyFrZ2vJxMwTp3KOeRqm7EmPTxIwh0zTlRoJhC+zqa+P6IAmLUq8oW99hzZ1nd3eAQ4nwPlfTDLbYTPOTB2ymc7hd5XRwXvnrl5P7KCI2RlItKDwufLYjO3gvWHNjqQIxPq8MwL7VYRcddfOqwJYbGPL+um9Kzhz4A/mgo++G65QnEsdcy6MV0Wp+l3rf9Z9TvrslMii45OTFkLtPzmqR0FSqTdC3kfP4jrepad2VLeeCml8KFYf6AYY8V5hhzFlI/SFdt0kaIpeULFEsMXKVYwcv6H2ZHS8Mp john.t.gruber@gmail.com
       write_files:
-      - path: /etc/vpm/basic-auth.json
-        permissions: '0644'
-        content: |
-          [{"username": "admin", "password": "${admin_password}"}]
-      - path: /etc/vpm/config.yaml
-        permissions: '0644'
-        content: |
-          Kubernetes:
-            EtcdUseTLS: True
-            Server: vip
-            CloudProvider: Equinix
-          Vpm:
-            ClusterName: ${cluster_name}
-            CertifiedHardware: ${certified_hardware}
-            ClusterType: ce
-            Config: /etc/vpm/config.yaml
-            PrivateNIC: eth0
-            InsideNIC: ${inside_nic}
-            Latitude: ${latitude}
-            Longitude: ${longitude}
-            MauriceEndpoint: https://register.ves.volterra.io
-            MauricePrivateEndpoint: https://register-tls.ves.volterra.io
-            Token: ${site_token}
-            Labels:
-              provider: Equinix
-              region: ${region}
-              hw-model: ${profile}
-              hw-vendor: ibm-vpc-gen2
-              ves.io/fleet: ${fleet_label}
-            StaticIpConfiguration:
-              SiteLocalIp: __ETH0_IP_CIDR__
-              SiteLocalGw: __ETH0_IP_GW__
-              SiteLocalInsideIp: __ETH1_IP_CIDR__
-              SiteLocalInsideGw: __ETH1_IP_GW__
+        - path: /etc/vpm/basic-auth.json
+          permissions: '0644'
+          content: |
+            [{"username": "admin", "password": "${admin_password}"}]
+        - path: /etc/vpm/config.yaml
+          permissions: '0644'
+          content: |
+            Kubernetes:
+              EtcdUseTLS: true
+              Server: vip
+            Vpm:
+              ClusterName: ${cluster_name}
+              CertifiedHardware: ${certified_hardware}
+              ClusterType: ce
+              Config: /etc/vpm/config.yaml
+              PrivateNIC: eth0
+              InsideNIC: ${inside_nic}
+              Latitude: ${latitude}
+              Longitude: ${longitude}
+              MauriceEndpoint: https://register.ves.volterra.io
+              MauricePrivateEndpoint: https://register-tls.ves.volterra.io
+              Token: ${site_token}
+              Labels:
+                provider: Equinix
+                region: ${region}
+                hw-model: ${profile}
+                hw-vendor: equinix-metal
+                ves.io/fleet: ${fleet_label}
       bootcmd:
         - /usr/bin/touch /etc/vpm/passwdchanged
-  - path: /etc/ce_domain.xml
+  - path: /etc/ce_domain_template.xml
     permission: '0644'
     content: |
       <domain type='kvm'>
-        <name>${hostname}</name>
+        <name>__CE_HOSTNAME__</name>
         <uuid>__SERIAL_NUMBER__</uuid>
-        <memory unit='KiB'>__VE_RAM__</memory>
-        <currentMemory unit='KiB'>__VE_RAM__</currentMemory>
-        <vcpu placement='static'>__VE_CPUS__</vcpu>
+        <metadata>
+          <libosinfo:libosinfo xmlns:libosinfo="http://libosinfo.org/xmlns/libvirt/domain/1.0">
+            <libosinfo:os id="http://centos.org/centos/7.0"/>
+          </libosinfo:libosinfo>
+        </metadata>
+        <memory unit='KiB'>${ram}</memory>
+        <currentMemory unit='KiB'>${ram}</currentMemory>
+         <vcpu placement='static'>${vcpus}</vcpu>
         <os>
           <type arch='x86_64' machine='pc-i440fx-rhel7.0.0'>hvm</type>
           <boot dev='hd'/>
         </os>
-        <cpu mode='custom' match='exact'>
-          <model fallback='allow'>Haswell-noTSX</model>
-        </cpu>
+        <features>
+          <acpi/>
+          <apic/>
+        </features>
+        <cpu mode='host-model' check='none'/>
+        <clock offset='utc'>
+          <timer name='rtc' tickpolicy='catchup'/>
+          <timer name='pit' tickpolicy='delay'/>
+          <timer name='hpet' present='no'/>
+        </clock>
+        <on_poweroff>destroy</on_poweroff>
+        <on_reboot>restart</on_reboot>
+        <on_crash>restart</on_crash>
         <pm>
           <suspend-to-mem enabled='no'/>
           <suspend-to-disk enabled='no'/>
@@ -77,64 +91,283 @@ write_files:
           <emulator>/usr/libexec/qemu-kvm</emulator>
           <disk type='file' device='disk'>
             <driver name='qemu' type='qcow2'/>
-            <source file='/var/lib/libvirt/images/ce.qcow2'/>
+            <source file='__CE_DISK_IMAGE__'/>
             <target dev='vda' bus='virtio'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
           </disk>
-          <disk type='file' device='cdrom'>
+          <disk type='file' device='disk'>
             <driver name='qemu' type='raw'/>
-            <source file='/var/lib/libvirt/images/config.iso'/>
-            <target dev='hdd' bus='ide'/>
-            <readonly/>
+            <source file='__CE_CLOUDINIT_ISO__'/>
+            <target dev='vdb' bus='virtio'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x00' function='0x0'/>
           </disk>
           <controller type='usb' index='0' model='ich9-ehci1'>
-            <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x7'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x7'/>
+          </controller>
+          <controller type='usb' index='0' model='ich9-uhci1'>
+            <master startport='0'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0' multifunction='on'/>
+          </controller>
+          <controller type='usb' index='0' model='ich9-uhci2'>
+            <master startport='2'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x1'/>
+          </controller>
+          <controller type='usb' index='0' model='ich9-uhci3'>
+            <master startport='4'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x2'/>
           </controller>
           <controller type='pci' index='0' model='pci-root'/>
           <controller type='ide' index='0'>
             <address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x1'/>
           </controller>
           <controller type='virtio-serial' index='0'>
-            <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
           </controller>
+          <interface type='network'>
+            <mac address='__EXTERNAL_MAC_ADDRESS__'/>
+            <source network='external'/>
+            <model type='virtio'/>
+            <driver name='vhost' queues='__VIRTIO_NIC_QUEUES__'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+          </interface>
           <interface type='direct'>
-            <mac address='__PRIVATE_MAC_ADDRESS__'/>
-            <source dev='__PRIVATE_HOST_INTERFACE__' mode='bridge'/>
+            <mac address='__INTERNAL_MAC_ADDRESS__'/>
+            <source dev='__INTERNAL_HOST_INTERFACE__' mode='bridge'/>
             <model type='virtio'/>
             <driver name='vhost' queues='__VIRTIO_NIC_QUEUES__'/>
             <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
           </interface>
-          <interface type='direct'>
-            <mac address='__PUBLIC_MAC_ADDRESS__'/>
-            <source dev='__PUBLIC_MAC_INTERFACE__' mode='bridge'/>
-            <model type='virtio'/>
-            <driver name='vhost' queues='__VIRTIO_NIC_QUEUES__'/>
-            <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
-          </interface>
           <serial type='pty'>
-            <target port='0'/>
+            <target type='isa-serial' port='0'>
+              <model name='isa-serial'/>
+            </target>
           </serial>
           <console type='pty'>
             <target type='serial' port='0'/>
           </console>
           <channel type='unix'>
-            <source mode='bind' path='/var/lib/libvirt/qemu/channel/target/domain-${hostname}/org.qemu.guest_agent.0'/>
             <target type='virtio' name='org.qemu.guest_agent.0'/>
             <address type='virtio-serial' controller='0' bus='0' port='1'/>
           </channel>
+          <channel type='spicevmc'>
+            <target type='virtio' name='com.redhat.spice.0'/>
+            <address type='virtio-serial' controller='0' bus='0' port='2'/>
+          </channel>
+          <input type='mouse' bus='ps2'/>
+          <input type='keyboard' bus='ps2'/>
+          <graphics type='spice' autoport='yes'>
+            <listen type='address'/>
+          </graphics>
           <video>
-            <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1'/>
+            <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/>
             <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
           </video>
-         <memballoon model='virtio'>
+          <redirdev bus='usb' type='spicevmc'>
+            <address type='usb' bus='0' port='1'/>
+          </redirdev>
+          <redirdev bus='usb' type='spicevmc'>
+            <address type='usb' bus='0' port='2'/>
+          </redirdev>
+          <memballoon model='virtio'>
             <address type='pci' domain='0x0000' bus='0x00' slot='0x09' function='0x0'/>
           </memballoon>
+          <rng model='virtio'>
+            <backend model='random'>/dev/urandom</backend>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x10' function='0x0'/>
+          </rng>
         </devices>
       </domain>
   - path: /sbin/create_ce_from_metal.sh
     permission: '0744'
     content: |
       #!/bin/bash
+      function generate_MAC_address() {
+          echo  'import random ; mac = [ 0x02, 0x01, 0x3e, random.randint(0x00, 0x7f), random.randint(0x00, 0xff), random.randint(0x00, 0xff) ] ; print ":".join(map(lambda x: "%02x" % x, mac))'| python
+      }
 
-      echo "do something cool"
-bootcmd:
+      function print_all_ips() {
+        local OLDIFS="$IFS"
+        local sub=$(echo $1|cut -d'/' -f1)
+        local prefix=$(echo $1|cut -d'/' -f2)
+        local mask=$(( 1 << ( 32 - $prefix )))
+        IFS="."
+        set -- $sub
+        ips=$((0x$(printf "%02x%02x%02x%02x\n" $1 $2 $3 $4)))
+        IFS="$OLDIFS"
+        for (( n=0; n<$mask; n++ ))
+        {
+          val=$((ips|n))
+          printf "%d.%d.%d.%d\n" \
+            $(( (val >> 24) & 255 )) \
+            $(( (val >> 16) & 255 )) \
+            $(( (val >> 8 ) & 255 )) \
+            $(( (val) & 255 ))
+        }
+      }
+
+      function print_n_ips() {
+        local OLDIFS="$IFS"
+        local sub=$(echo $1|cut -d'/' -f1)
+        local prefix=$(echo $1|cut -d'/' -f2)
+        local mask=$(( 1 << ( 32 - $prefix )))
+        local number_of_addresses=$(($2+1))
+        IFS="."
+        set -- $sub
+        ips=$((0x$(printf "%02x%02x%02x%02x\n" $1 $2 $3 $4)))
+        IFS="$OLDIFS"
+        for (( n=1; n<$mask; n++ ))
+        {
+          val=$((ips|n))
+          if [[ $n -lt $number_of_addresses ]]; then
+            printf "%d.%d.%d.%d\n" \
+              $(( (val >> 24) & 255 )) \
+              $(( (val >> 16) & 255 )) \
+              $(( (val >> 8 ) & 255 )) \
+              $(( (val) & 255 ))
+          fi
+        }
+      }
+
+      function generate_MAC_from_IP() {
+        ip_hex=$(gethostip -x $1)
+        echo 02:01:$(echo $ip_hex|sed 's/.\{2\}/&\:/g;s/\:$//'| tr '[:upper:]' '[:lower:]')
+      }
+
+      function create_libvirt_routed_network() {
+        local name=$1
+        local ip_address=$2
+        local ip_netmask=$3
+        local catalog_file=$4
+        echo "<network>" > /etc/libvirt/network-$name.xml
+        echo "<name>$name</name>" >> /etc/libvirt/network-$name.xml
+        echo "<bridge name='virbr-$name' />" >> /etc/libvirt/network-$name.xml
+        echo "<forward mode='route' />" >> /etc/libvirt/network-$name.xml
+        echo "<ip address='$ip_address' netmask='$ip_netmask'>" >> /etc/libvirt/network-$name.xml
+        echo "  <dhcp>" >> /etc/libvirt/network-$name.xml
+        while IFS= read -r ipaddr || [[ -n "$ipaddr" ]]; do
+          local generated_mac=$(generate_MAC_from_IP $ipaddr)
+          echo "    <host mac='$generated_mac' ip='$ipaddr' />" >> /etc/libvirt/network-$name.xml
+        done < "$catalog_file"
+        echo "  </dhcp>" >> /etc/libvirt/network-$name.xml
+        echo "</ip>" >> /etc/libvirt/network-$name.xml
+        echo "</network>" >> /etc/libvirt/network-$name.xml
+        virsh net-define /etc/libvirt/network-$name.xml
+        virsh net-autostart $name
+        virsh net-start $name
+      }
+
+      function create_vlan_interface() {
+        local interface=$1
+        local vlan_id=$2
+        local ip_address=$3
+        local ip_prefix=$4
+        echo "ONBOOT=yes" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
+        echo "TYPE=Ethernet" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
+        echo "VLAN=yes" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
+        echo "DEVICE=$interface.$vlan_id" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
+        echo "BOOTPROTO=static" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
+        echo "IPADDR=$ip_address" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
+        echo "PREFIX=$ip_prefix" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
+        systemctl restart network
+      }
+
+      #### HOST LEVEL CONFIGURATION ####
+      ### Download CE image
+      curl -o /var/lib/libvirt/images/ce.qcow2 ${ce_download_url}
+      
+      # how many subnet IPs will we need
+      let ip_hosts=${host_count}*${ce_count}+${host_count}+1
+      # what is this host index in the global catalogs
+      let ip_index=(${host_index}-1)*${ce_count}+${host_index}+1
+      
+      ## generate global external IP address catalog
+      print_n_ips ${external_cidr} $ip_hosts > /etc/ce_external_ip_addresses
+      external_gw=$(print_n_ips ${external_cidr} 1)
+      external_netmask=$(ipcalc ${external_cidr} -m|cut -d'=' -f2)
+      external_prefix=$(ipcalc ${external_cidr} -p|cut -d'=' -f2)
+      external_host_ip=$(tail -n +$ip_index /etc/ce_external_ip_addresses | head -n 1)
+
+      ## generate host eip catalog
+      print_all_ips ${eips_cidr} > /etc/ce_eip_addresses
+
+      ## generate global internal IP address catalog
+      print_n_ips ${internal_cidr} $ip_hosts > /etc/ce_internal_ip_addresses
+      internal_gw=$(print_n_ips ${internal_cidr} 1)
+      internal_netmask=$(ipcalc ${internal_cidr} -m|cut -d'=' -f2)
+      internal_prefix=$(ipcalc ${internal_cidr} -p|cut -d'=' -f2)
+      internal_host_ip=$(tail -n +$ip_index /etc/ce_internal_ip_addresses | head -n 1)
+
+      #### External Network ####
+      ## enable host routing
+      echo 1 > /proc/sys/net/ipv4/ip_forward
+      sysctl -w net.ipv4.ip_forward=1
+      echo net.ipv4.ip_forward=1 >> /etc/sysctl.conf
+      ## remove default configuration
+      systemctl enable libvirt-guests.service
+      systemctl start libvirt-guests.service
+      virsh net-destroy default
+      virsh net-undefine default
+      systemctl restart libvirtd
+      ## create libvirt routed external network
+      create_libvirt_routed_network external $external_host_ip $external_netmask /etc/ce_external_ip_addresses
+      ## DNAT rules
+      modprobe ip_tables
+      
+      #### Internal Network ####
+      ## create internal L2 VLAN
+      modprobe 8021q
+      echo "8021q" >> /etc/modules-load.d/8021q.conf
+      ## create systemconfig network scripts for VLANs
+      create_vlan_interface bond0 ${internal_vlan_id} $internal_host_ip $internal_prefix
+      instance_internal_interface="bond0.${internal_vlan_id}"
+      
+      #### GUEST LEVEL CONFIGURATION ####
+      for i in $(seq ${ce_count})
+      do
+          let ce_address_index=$ip_index+$i
+          ce_external_ip_address=$(tail -n +$ce_address_index /etc/ce_external_ip_addresses | head -n1)
+          let eip_index=$i+1
+          ce_eip=$(tail -n +$eip_index /etc/ce_eip_addresses | head -n1)
+          ce_external_ip_cidr=$ce_external_ip_address/$external_prefix
+          ce_external_ip_cidr=$(echo "$ce_external_ip_cidr"| sed 's/\//\\\//g')
+          ce_external_mac_address=$(generate_MAC_from_IP $ce_external_ip_address)
+          ce_internal_ip_address=$(tail -n +$ce_address_index /etc/ce_internal_ip_addresses | head -n1)
+          ce_internal_ip_cidr=$ce_internal_ip_address/$internal_prefix
+          ce_internal_ip_cidr=$(echo "$ce_internal_ip_cidr"| sed 's/\//\\\//g')
+          ce_internal_mac_address=$(generate_MAC_from_IP $ce_internal_ip_address)
+          # make configuration directory
+          mkdir -p /usr/src/ce_$i
+          # guest libvirt domain XML
+          instance_serial_number=$(uuidgen)
+          cp /etc/ce_domain_template.xml /usr/src/ce_$i/ce_$i.xml
+          cp /var/lib/libvirt/images/ce.qcow2 /var/lib/libvirt/images/ce_$i.qcow2
+          ce_hostname=$(hostname)-ce-$i
+          sed -i -e "s/__SERIAL_NUMBER__/$instance_serial_number/g" /usr/src/ce_$i/ce_$i.xml
+          sed -i -e "s/__EXTERNAL_MAC_ADDRESS__/$ce_external_mac_address/g" /usr/src/ce_$i/ce_$i.xml
+          sed -i -e "s/__INTERNAL_MAC_ADDRESS__/$ce_internal_mac_address/g" /usr/src/ce_$i/ce_$i.xml
+          sed -i -e "s/__INTERNAL_HOST_INTERFACE__/$instance_internal_interface/g" /usr/src/ce_$i/ce_$i.xml
+          sed -i -e "s/__VIRTIO_NIC_QUEUES__/2/g" /usr/src/ce_$i/ce_$i.xml
+          sed -i -e "s/__CE_DISK_IMAGE__/\/var\/lib\/libvirt\/images\/ce_$i\.qcow2/g" /usr/src/ce_$i/ce_$i.xml
+          sed -i -e "s/__CE_CLOUDINIT_ISO__/\/usr\/src\/ce_$i\/cidata.iso/g" /usr/src/ce_$i/ce_$i.xml
+          sed -i -e "s/__CE_HOSTNAME__/$ce_hostname/g" /usr/src/ce_$i/ce_$i.xml
+          # guest cloudinit
+          echo "instance_id: $instance_serial_number" > /usr/src/ce_$i/meta-data
+          echo "local-hostname: $ce_hostname" >> /usr/src/ce_$i/meta-data
+          cp /etc/ce_userdata_template.yaml /usr/src/ce_$i/user-data
+          sed -i -e "s/__ETH0_IP_CIDR__/$ce_external_ip_cidr/g" /usr/src/ce_$i/user-data
+          sed -i -e "s/__ETH0_GATEWAY__/$host_external_ip/g" /usr/src/ce_$i/user-data
+          sed -i -e "s/__ETH1_IP_CIDR__/$ce_internal_ip_cidr/g" /usr/src/ce_$i/user-data
+          sed -i -e "s/__ETH1_GATEWAY__/$host_internal_ip/g" /usr/src/ce_$i/user-data
+          cd /usr/src/ce_$i/
+          genisoimage -output cidata.iso -volid cidata -joliet -rock user-data meta-data
+          virsh define /usr/src/ce_$i/ce_$i.xml
+          virsh start $ce_hostname
+          virsh autostart $ce_hostname
+          iptables -t nat -A POSTROUTING -s $ce_external_ip_address -j SNAT --to-source $ce_eip
+          iptables -t nat -A PREROUTING -i bond0 -d $ce_eip -j DNAT --to-destination $ce_external_ip_address
+          iptables -A FORWARD -s $ce_eip -j ACCEPT
+          iptables -A FORWARD -d $ce_external_ip_address -j ACCEPT
+      done
+      /usr/libexec/iptables/iptables.init save
+runcmd:
   - bash /sbin/create_ce_from_metal.sh

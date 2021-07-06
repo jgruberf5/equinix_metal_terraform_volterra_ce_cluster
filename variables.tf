@@ -28,6 +28,10 @@ variable "project_id" {
 variable "facility" {
   default     = "dal11"
   description = "Equinix Facility"
+  validation {
+    condition = contains(["am", "ch", "da", "fr", "ny", "sv", "sg", "sy", "dc", "at", "hk", "ld", "la", "mr", "pa", "se", "sl", "tr"], substr(var.facility, 0 ,2))
+    error_message = "Valid facilities start with (am, ch, da, fr, ny, sv, sg, sy, dc, at, hk, ld, la, mr, pa, se, sl, tr)."
+  }
 }
 
 ##################################################################################
@@ -36,6 +40,23 @@ variable "facility" {
 variable "plan" {
   default     = "c3.small.x86"
   description = "Equinix Instance Plan"
+  validation {
+    condition = contains(["c3.small.x86", "c3.medium.x86"], var.plan)
+    error_message = "Valid plans for site deployment are (c3.small.x86, c3.medium.x86)."
+  }
+}
+
+##################################################################################
+# Equinix Metal Server Count
+##################################################################################
+variable "server_count" {
+  type        = number
+  default     = 3
+  description = "Equinix metal instance count"
+  validation  {
+    condition = contains([3,4,5,6,7,8], var.server_count)
+    error_message = "The variable server_count must be between 3 and 8."
+  }
 }
 
 ##################################################################################
@@ -63,15 +84,6 @@ variable "volterra_fleet_label" {
   type        = string
   default     = ""
   description = "The Volterra Fleet label for this VPC"
-}
-
-##################################################################################
-# The Volterra cluster size
-##################################################################################
-variable "volterra_cluster_size" {
-  type        = number
-  default     = 3
-  description = "The Volterra cluster size"
 }
 
 ##################################################################################
@@ -124,14 +136,6 @@ variable "volterra_download_url" {
 variable "volterra_external_cidr" {
   default     = ""
   description = "Volterra CE External Subnet CIDR"
-}
-
-##################################################################################
-# Volterra CE Internal VLAN ID
-##################################################################################
-variable "volterra_internal_vlan_id" {
-  default     = ""
-  description = "Volterra CE Internal VLAN ID"
 }
 
 ##################################################################################
