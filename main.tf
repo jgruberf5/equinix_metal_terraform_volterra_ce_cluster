@@ -20,12 +20,12 @@ locals {
   plan_map = {
     "c3.small.x86" = {
       "ce_count" = 2,
-      "ce_vpus" = 4,
+      "ce_vcpus" = 4,
       "ce_ram" = 15728640
     },
     "c3.medium.x86" = {
       "ce_count" = 3,
-      "ce_vpus" = 8,
+      "ce_vcpus" = 8,
       "ce_ram" = 20971520
     }
   }
@@ -132,7 +132,7 @@ locals {
   template_file      = file(local.template_map[local.which_stack])
   total_ces = lookup(local.plan_map, var.plan).ce_count * var.server_count
   ce_count = lookup(local.plan_map, var.plan).ce_count
-  ce_vpus = lookup(local.plan_map, var.plan).ce_vpus
+  ce_vcpus = lookup(local.plan_map, var.plan).ce_vcpus
   ce_ram = lookup(local.plan_map, var.plan).ce_ram
   cidr_subnets = metal_reserved_ip_block.ce_external_network.cidr == 28 ? cidrsubnets(metal_reserved_ip_block.ce_external_network.cidr_notation, 2, 2, 2, 2) : cidrsubnets(metal_reserved_ip_block.ce_external_network.cidr_notation, 3, 3, 3, 3, 3, 3, 3, 3, 3)
 }
@@ -166,24 +166,25 @@ data "template_file" "user_data" {
   vars = {
     host_index         = count.index + 1
     host_count         = var.server_count
-    hostname           = "${var.volterra_site_name}-metal-${count.index}"
+    site_name          = var.volterra_site_name
     admin_password     = local.admin_password
     cluster_name       = var.volterra_site_name
     fleet_label        = var.volterra_fleet_label
     certified_hardware = local.certified_hardware
     latitude           = lookup(local.facility_location_map, substr(var.facility, 0, 2)).latitude
     longitude          = lookup(local.facility_location_map, substr(var.facility, 0, 2)).longitude
-    site_token         = "a06d8631-eacc-4d64-8009-4d349a8540d8"
+    site_token         = volterra_token.volterra_site_token.id
     profile            = var.plan
     inside_nic         = local.inside_nic
     region             = var.facility
     ce_count           = local.ce_count
-    vcpus              = local.ce_vpus
+    vcpus              = local.ce_vcpus
     ram                = local.ce_ram
     serial_prefix      = substr(random_uuid.serial_number_seed.result, 0, -3)
     external_cidr      = var.volterra_external_cidr
     internal_cidr      = var.volterra_internal_cidr
     internal_vlan_id   = metal_vlan.ce_internal_vlan.vxlan
+    external_vlan_id   = metal_vlan.ce_external_vlan.vxlan
     ce_download_url    = var.volterra_download_url
     eips_cidr          = local.cidr_subnets[count.index]
   }
@@ -220,6 +221,20 @@ resource "metal_device_network_type" "ce_network_type" {
   count     = var.server_count
   device_id = metal_device.ce_instance[count.index].id
   type      = "hybrid"
+}
+
+# Create an external VLAN allowed on the bonded ports
+resource "metal_vlan" "ce_external_vlan" {
+  facility   = var.facility
+  project_id = var.project_id
+}
+
+# Attach the internal VLAN to the bond0 interface
+resource "metal_port_vlan_attachment" "ce_external_vlan" {
+  count     = var.server_count
+  device_id = metal_device_network_type.ce_network_type[count.index].id
+  port_name = "bond0"
+  vlan_vnid = metal_vlan.ce_external_vlan.vxlan
 }
 
 # Create an internal VLAN allowed on the bonded ports

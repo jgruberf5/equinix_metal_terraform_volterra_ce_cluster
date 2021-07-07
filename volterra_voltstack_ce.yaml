@@ -10,7 +10,6 @@ packages:
   - syslinux
   - iptables-services
 package_reboot_if_required: true
-package_reboot_if_required: true
 write_files:
   - path: /etc/ce_userdata_template.yaml
     permission: '0644'
@@ -20,8 +19,6 @@ write_files:
         expire: false
         list: |
           admin:${admin_password}
-      ssh_authorized_keys:
-        - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC9OJ+5GlA0AkOi7FNtRxabTvMGP20rAVnJSaV64GKqiu6EOhGm/wUyFrZ2vJxMwTp3KOeRqm7EmPTxIwh0zTlRoJhC+zqa+P6IAmLUq8oW99hzZ1nd3eAQ4nwPlfTDLbYTPOTB2ymc7hd5XRwXvnrl5P7KCI2RlItKDwufLYjO3gvWHNjqQIxPq8MwL7VYRcddfOqwJYbGPL+um9Kzhz4A/mgo++G65QnEsdcy6MV0Wp+l3rf9Z9TvrslMii45OTFkLtPzmqR0FSqTdC3kfP4jrepad2VLeeCml8KFYf6AYY8V5hhzFlI/SFdt0kaIpeULFEsMXKVYwcv6H2ZHS8Mp john.t.gruber@gmail.com
       write_files:
         - path: /etc/vpm/basic-auth.json
           permissions: '0644'
@@ -39,7 +36,7 @@ write_files:
               ClusterType: ce
               Config: /etc/vpm/config.yaml
               PrivateNIC: eth0
-              # Voltstack sites only support 1 NIC
+              # Voltstack only support 1 NIC deployments
               # InsideNIC: ${inside_nic}
               Latitude: ${latitude}
               Longitude: ${longitude}
@@ -51,7 +48,7 @@ write_files:
                 region: ${region}
                 hw-model: ${profile}
                 hw-vendor: equinix-metal
-                # Voltstack sites automatically create the fleet label
+                # Voltstack sites automatically create the site name
                 # ves.io/fleet: ${fleet_label}
       bootcmd:
         - /usr/bin/touch /etc/vpm/passwdchanged
@@ -71,7 +68,8 @@ write_files:
          <vcpu placement='static'>${vcpus}</vcpu>
         <os>
           <type arch='x86_64' machine='pc-i440fx-rhel7.0.0'>hvm</type>
-          <boot dev='hd'/>
+          <boot dev='hd'/># let ip_hosts=${host_count}*${ce_count}+${host_count}+1
+          
         </os>
         <features>
           <acpi/>
@@ -126,16 +124,16 @@ write_files:
           <controller type='virtio-serial' index='0'>
             <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
           </controller>
-          <interface type='network'>
+          <interface type='bridge'>
             <mac address='__EXTERNAL_MAC_ADDRESS__'/>
-            <source network='external'/>
+            <source bridge='__EXTERNAL_BRIDGE_NAME__'/>
             <model type='virtio'/>
             <driver name='vhost' queues='__VIRTIO_NIC_QUEUES__'/>
             <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
           </interface>
-          <interface type='direct'>
+          <interface type='bridge'>
             <mac address='__INTERNAL_MAC_ADDRESS__'/>
-            <source dev='__INTERNAL_HOST_INTERFACE__' mode='bridge'/>
+            <source bridge='__INTERNAL_BRIDGE_NAME__'/>
             <model type='virtio'/>
             <driver name='vhost' queues='__VIRTIO_NIC_QUEUES__'/>
             <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
@@ -184,44 +182,28 @@ write_files:
     permission: '0744'
     content: |
       #!/bin/bash
-      function generate_MAC_address() {
-          echo  'import random ; mac = [ 0x02, 0x01, 0x3e, random.randint(0x00, 0x7f), random.randint(0x00, 0xff), random.randint(0x00, 0xff) ] ; print ":".join(map(lambda x: "%02x" % x, mac))'| python
-      }
-
-      function print_all_ips() {
-        local OLDIFS="$IFS"
+      function print_ip_catalog() {
         local sub=$(echo $1|cut -d'/' -f1)
         local prefix=$(echo $1|cut -d'/' -f2)
         local mask=$(( 1 << ( 32 - $prefix )))
+        local offset=0
+        if [[ ! -z "$2" ]]; then
+            offset=$2
+        fi
+        local number_of_addresses=$mask
+        if [[ ! -z "$3" ]]; then
+            let number_of_addresses=$3+offset
+        fi
+        local OLDIFS="$IFS"
         IFS="."
         set -- $sub
         ips=$((0x$(printf "%02x%02x%02x%02x\n" $1 $2 $3 $4)))
         IFS="$OLDIFS"
-        for (( n=0; n<$mask; n++ ))
+        for (( n=$offset; n<$mask; n++ ))
         {
           val=$((ips|n))
-          printf "%d.%d.%d.%d\n" \
-            $(( (val >> 24) & 255 )) \
-            $(( (val >> 16) & 255 )) \
-            $(( (val >> 8 ) & 255 )) \
-            $(( (val) & 255 ))
-        }
-      }
-
-      function print_n_ips() {
-        local OLDIFS="$IFS"
-        local sub=$(echo $1|cut -d'/' -f1)
-        local prefix=$(echo $1|cut -d'/' -f2)
-        local mask=$(( 1 << ( 32 - $prefix )))
-        local number_of_addresses=$(($2+1))
-        IFS="."
-        set -- $sub
-        ips=$((0x$(printf "%02x%02x%02x%02x\n" $1 $2 $3 $4)))
-        IFS="$OLDIFS"
-        for (( n=1; n<$mask; n++ ))
-        {
-          val=$((ips|n))
-          if [[ $n -lt $number_of_addresses ]]; then
+          if [ $n -lt $number_of_addresses ]
+          then
             printf "%d.%d.%d.%d\n" \
               $(( (val >> 24) & 255 )) \
               $(( (val >> 16) & 255 )) \
@@ -230,107 +212,145 @@ write_files:
           fi
         }
       }
-
       function generate_MAC_from_IP() {
         ip_hex=$(gethostip -x $1)
         echo 02:01:$(echo $ip_hex|sed 's/.\{2\}/&\:/g;s/\:$//'| tr '[:upper:]' '[:lower:]')
       }
-
-      function create_libvirt_routed_network() {
+      function deploy_dhcp_services() {
         local name=$1
-        local ip_address=$2
-        local ip_netmask=$3
-        local catalog_file=$4
-        echo "<network>" > /etc/libvirt/network-$name.xml
-        echo "<name>$name</name>" >> /etc/libvirt/network-$name.xml
-        echo "<bridge name='virbr-$name' />" >> /etc/libvirt/network-$name.xml
-        echo "<forward mode='route' />" >> /etc/libvirt/network-$name.xml
-        echo "<ip address='$ip_address' netmask='$ip_netmask'>" >> /etc/libvirt/network-$name.xml
-        echo "  <dhcp>" >> /etc/libvirt/network-$name.xml
-        while IFS= read -r ipaddr || [[ -n "$ipaddr" ]]; do
-          local generated_mac=$(generate_MAC_from_IP $ipaddr)
-          echo "    <host mac='$generated_mac' ip='$ipaddr' />" >> /etc/libvirt/network-$name.xml
-        done < "$catalog_file"
-        echo "  </dhcp>" >> /etc/libvirt/network-$name.xml
-        echo "</ip>" >> /etc/libvirt/network-$name.xml
-        echo "</network>" >> /etc/libvirt/network-$name.xml
-        virsh net-define /etc/libvirt/network-$name.xml
-        virsh net-autostart $name
-        virsh net-start $name
+        local server_address=$2
+        local addresses_catalog=$3
+        # create service configuration
+        mkdir -p /etc/dnsmasq-$name
+        echo "strict-order" > /etc/dnsmasq-$name/dnsmasq.conf
+        echo "pid-file=/var/run/dnsmasq-$name.pid" >> /etc/dnsmasq-$name/dnsmasq.conf
+        echo "except-interface=lo" >> /etc/dnsmasq-$name/dnsmasq.conf
+        echo "bind-dynamic" >> /etc/dnsmasq-$name/dnsmasq.conf
+        echo "interface=$name" >> /etc/dnsmasq-$name/dnsmasq.conf
+        echo "dhcp-range=$server_address,static" >> /etc/dnsmasq-$name/dnsmasq.conf
+        echo "dhcp-no-override" >> /etc/dnsmasq-$name/dnsmasq.conf
+        echo "dhcp-authoritative" >> /etc/dnsmasq-$name/dnsmasq.conf
+        echo "dhcp-hostsfile=/etc/dnsmasq-$name/dhcp.ethers" >> /etc/dnsmasq-$name/dnsmasq.conf
+        echo "dhcp-optsfile=/etc/dnsmasq-$name/dhcp.opts" >> /etc/dnsmasq-$name/dnsmasq.conf
+        echo "addn-hosts=/etc/dnsmasq-$name/dhcp.hosts" >> /etc/dnsmasq-$name/dnsmasq.conf
+        echo "dhcp-leasefile=/etc/dnsmasq-$name/dnsmasq.leases" >> /etc/dnsmasq-$name/dnsmasq.conf
+        if [[ ! -z "$catalog_file" ]];
+        then
+          for h in $(seq ${host_count})
+          do            
+            let h_ip_index=($h-1)*${ce_count}+$h+1
+            host_ip_address=$(tail -n +$h_ip_index $addresses_catalog | head -n 1)
+            host_hostname="${site_name}-metal-$h"
+            echo "$host_ip_address $host_hostname" >> /etc/dnsmasq-$name/dhcp.hosts
+            echo "tag:$host_hostname,option:dns-server,8.8.8.8,8.8.4.4" >> /etc/dnsmasq-$name/dhcp.opts
+            echo "tag:$host_hostname,option:router,$host_ip_address" >> /etc/dnsmasq-$name/dhcp.opts
+            for k in $(seq ${ce_count})
+            do
+              let ce_address_index=$h_ip_index+$k
+              ce_ip_address=$(tail -n +$ce_address_index $addresses_catalog | head -n1)
+              let ce_index=($h-1)*${ce_count}+$k
+              ce_hostname=${site_name}-ce-$ce_index
+              local generated_mac=$(generate_MAC_from_IP $ce_ip_address)
+              echo "$generated_mac,set:$host_hostname,$ce_ip_address" >> /etc/dnsmasq-$name/dhcp.ethers
+              echo "$ce_hostname $ce_ip_address" >> /etc/dnsmasq-$name/dhcp.hosts
+            done
+          done
+        fi
+        # create systemd service
+        echo "[Unit]" >> /usr/lib/systemd/system/dnsmasq-$name.service
+        echo "Description=dnsmasq service for bridge $name" >> /usr/lib/systemd/system/dnsmasq-$name.service
+        echo "After=network.target" >> /usr/lib/systemd/system/dnsmasq-$name.service
+        echo "[Service]" >> /usr/lib/systemd/system/dnsmasq-$name.service
+        echo "ExecStart=/usr/sbin/dnsmasq -d -C /etc/dnsmasq-$name/dnsmasq.conf" >> /usr/lib/systemd/system/dnsmasq-$name.service
+        echo "Restart=always" >> /usr/lib/systemd/system/dnsmasq-$name.service
+        echo "[Install]" >> /usr/lib/systemd/system/dnsmasq-$name.service
+        echo "WantedBy=multi-user.target" >> /usr/lib/systemd/system/dnsmasq-$name.service
+        ln -s /usr/lib/systemd/system/dnsmasq-$name.service /etc/systemd/system/multi-user.target.wants/dnsmasq-$name.service
+        systemctl enable dnsmasq-$name.service
+        systemctl start dnsmasq-$name.service
       }
-
-      function create_vlan_interface() {
+      function create_vlan_bridge() {
         local interface=$1
         local vlan_id=$2
         local ip_address=$3
         local ip_prefix=$4
+        local name=$5
+        local catalog_file=$6
+        # VLAN interface
+        echo "DEVICE=$interface.$vlan_id" > /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
+        echo "BOOTPROTO=none" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
         echo "ONBOOT=yes" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
-        echo "TYPE=Ethernet" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
         echo "VLAN=yes" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
-        echo "DEVICE=$interface.$vlan_id" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
-        echo "BOOTPROTO=static" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
-        echo "IPADDR=$ip_address" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
-        echo "PREFIX=$ip_prefix" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
+        echo "BRIDGE=$name" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
+        echo "NM_CONTROLLED=no" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
+        # Bridge
+        echo "DEVICE=$name" > /etc/sysconfig/network-scripts/ifcfg-$name
+        echo "TYPE=Bridge" >> /etc/sysconfig/network-scripts/ifcfg-$name
+        echo "ONBOOT=yes" >> /etc/sysconfig/network-scripts/ifcfg-$name
+        echo "BOOTPROTO=static" >> /etc/sysconfig/network-scripts/ifcfg-$name
+        echo "IPADDR=$ip_address" >> /etc/sysconfig/network-scripts/ifcfg-$name
+        echo "PREFIX=$ip_prefix" >> /etc/sysconfig/network-scripts/ifcfg-$name
+        echo "NM_CONTROLLED=no" >> /etc/sysconfig/network-scripts/ifcfg-$name
         systemctl restart network
+        deploy_dhcp_services $name $ip_address $catalog_file 
       }
-
       #### HOST LEVEL CONFIGURATION ####
-      ### Download CE image
-      curl -o /var/lib/libvirt/images/ce.qcow2 ${ce_download_url}
-      
-      # how many subnet IPs will we need
+      # Load netstack modules
+      modprobe 8021q
+      modprobe bridge
+      modprobe ip_tables
+      echo "8021q" >> /etc/modules-load.d/8021q.conf
+      echo "bridge" >> /etc/modules-load.d/br_netfilter.conf
+      echo "ip_tables" >> /etc/modules-load.d/iptables.conf
+      # allow L2 broadcasts on the bridges
+      echo net.bridge.bridge-nf-call-ip6tables = 1 >> /etc/sysctl.conf
+      echo net.bridge.bridge-nf-call-iptables = 1 >> /etc/sysctl.conf
+      echo net.bridge.bridge-nf-call-arptables = 1 >> /etc/sysctl.conf
+      # enable L3 routing
+      echo 1 > /proc/sys/net/ipv4/ip_forward
+      echo net.ipv4.ip_forward=1 >> /etc/sysctl.conf
+      # reset sysctl registers
+      sysctl -p /etc/sysctl.conf
+      # This host's L3 placement in the deployment
       let ip_hosts=${host_count}*${ce_count}+${host_count}+1
-      # what is this host index in the global catalogs
+      # What is this host index in the global catalogs
       let ip_index=(${host_index}-1)*${ce_count}+${host_index}+1
-      
-      ## generate global external IP address catalog
-      print_n_ips ${external_cidr} $ip_hosts > /etc/ce_external_ip_addresses
-      external_gw=$(print_n_ips ${external_cidr} 1)
+      # Generate global external IP address catalog
+      print_ip_catalog ${external_cidr} 1 $ip_hosts > /etc/ce_external_ip_addresses
+      external_gw=$(print_ip_catalog ${external_cidr} 1 1)
       external_netmask=$(ipcalc ${external_cidr} -m|cut -d'=' -f2)
       external_prefix=$(ipcalc ${external_cidr} -p|cut -d'=' -f2)
       external_host_ip=$(tail -n +$ip_index /etc/ce_external_ip_addresses | head -n 1)
-
-      ## generate host eip catalog
-      print_all_ips ${eips_cidr} > /etc/ce_eip_addresses
-
-      ## generate global internal IP address catalog
-      print_n_ips ${internal_cidr} $ip_hosts > /etc/ce_internal_ip_addresses
-      internal_gw=$(print_n_ips ${internal_cidr} 1)
+      # Generate host eip catalog
+      print_ip_catalog ${eips_cidr} > /etc/ce_eip_addresses
+      # Generate global internal IP address catalog
+      print_ip_catalog ${internal_cidr} 1 $ip_hosts > /etc/ce_internal_ip_addresses
+      internal_gw=$(print_ip_catalog ${internal_cidr} 1 1)
       internal_netmask=$(ipcalc ${internal_cidr} -m|cut -d'=' -f2)
       internal_prefix=$(ipcalc ${internal_cidr} -p|cut -d'=' -f2)
       internal_host_ip=$(tail -n +$ip_index /etc/ce_internal_ip_addresses | head -n 1)
-
-      #### External Network ####
-      ## enable host routing
-      echo 1 > /proc/sys/net/ipv4/ip_forward
-      sysctl -w net.ipv4.ip_forward=1
-      echo net.ipv4.ip_forward=1 >> /etc/sysctl.conf
-      ## remove default configuration
+      ## remove default libvirt network configurations
       systemctl enable libvirt-guests.service
       systemctl start libvirt-guests.service
       virsh net-destroy default
       virsh net-undefine default
       systemctl restart libvirtd
-      ## create libvirt routed external network
-      create_libvirt_routed_network external $external_host_ip $external_netmask /etc/ce_external_ip_addresses
-      ## DNAT rules
-      modprobe ip_tables
-      
-      #### Internal Network ####
-      ## create internal L2 VLAN
-      modprobe 8021q
-      echo "8021q" >> /etc/modules-load.d/8021q.conf
-      ## create systemconfig network scripts for VLANs
-      create_vlan_interface bond0 ${internal_vlan_id} $internal_host_ip $internal_prefix
-      instance_internal_interface="bond0.${internal_vlan_id}"
-      
+      #### External Network ####
+      create_vlan_bridge bond0 ${external_vlan_id} $external_host_ip $external_prefix br-external /etc/ce_external_ip_addresses        
+      #### Internal Network ###
+      create_vlan_bridge bond0 ${internal_vlan_id} $internal_host_ip $internal_prefix br-internal /etc/ce_internal_ip_addresses
+      ### Download CE image
+      curl --retry 999 --retry-max-time 0 -o /var/lib/libvirt/images/ce.qcow2 ${ce_download_url}
       #### GUEST LEVEL CONFIGURATION ####
       for i in $(seq ${ce_count})
       do
+          # get the IP addesses for the CE
           let ce_address_index=$ip_index+$i
-          ce_external_ip_address=$(tail -n +$ce_address_index /etc/ce_external_ip_addresses | head -n1)
+          # get an EIP for the CE
           let eip_index=$i+1
           ce_eip=$(tail -n +$eip_index /etc/ce_eip_addresses | head -n1)
+          # defined the network settings for the CE
+          ce_external_ip_address=$(tail -n +$ce_address_index /etc/ce_external_ip_addresses | head -n1)
           ce_external_ip_cidr=$ce_external_ip_address/$external_prefix
           ce_external_ip_cidr=$(echo "$ce_external_ip_cidr"| sed 's/\//\\\//g')
           ce_external_mac_address=$(generate_MAC_from_IP $ce_external_ip_address)
@@ -338,39 +358,57 @@ write_files:
           ce_internal_ip_cidr=$ce_internal_ip_address/$internal_prefix
           ce_internal_ip_cidr=$(echo "$ce_internal_ip_cidr"| sed 's/\//\\\//g')
           ce_internal_mac_address=$(generate_MAC_from_IP $ce_internal_ip_address)
-          # make configuration directory
+          # make configuration directory for the CE cloudinit and libvirt domain declarations
           mkdir -p /usr/src/ce_$i
+          echo "EXTERNAL_INTERFACE" > /usr/src/ce_$i/ce_$i.netcfg
+          echo $ce_external_mac_address >> /usr/src/ce_$i/ce_$i.netcfg
+          echo $ce_external_ip_address >> /usr/src/ce_$i/ce_$i.netcfg
+          echo $ce_external_ip_cidr >> /usr/src/ce_$i/ce_$i.netcfg
+          echo "INTERNAL_INTERFACE"
+          echo $ce_internal_mac_address >> /usr/src/ce_$i/ce_$i.netcfg
+          echo $ce_internal_ip_address >> /usr/src/ce_$i/ce_$i.netcfg
+          echo $ce_internal_ip_cidr >> /usr/src/ce_$i/ce_$i.netcfg
           # guest libvirt domain XML
           instance_serial_number=$(uuidgen)
           cp /etc/ce_domain_template.xml /usr/src/ce_$i/ce_$i.xml
           cp /var/lib/libvirt/images/ce.qcow2 /var/lib/libvirt/images/ce_$i.qcow2
-          ce_hostname=$(hostname)-ce-$i
+          let ce_index=(${host_index}-1)*${ce_count}+$i
+          ce_hostname="${site_name}-ce-$ce_index"
+          # libvirt domain XML template population
           sed -i -e "s/__SERIAL_NUMBER__/$instance_serial_number/g" /usr/src/ce_$i/ce_$i.xml
           sed -i -e "s/__EXTERNAL_MAC_ADDRESS__/$ce_external_mac_address/g" /usr/src/ce_$i/ce_$i.xml
+          sed -i -e "s/__EXTERNAL_BRIDGE_NAME__/br-external/g" /usr/src/ce_$i/ce_$i.xml
           sed -i -e "s/__INTERNAL_MAC_ADDRESS__/$ce_internal_mac_address/g" /usr/src/ce_$i/ce_$i.xml
-          sed -i -e "s/__INTERNAL_HOST_INTERFACE__/$instance_internal_interface/g" /usr/src/ce_$i/ce_$i.xml
+          sed -i -e "s/__INTERNAL_BRIDGE_NAME__/br-internal/g" /usr/src/ce_$i/ce_$i.xml
           sed -i -e "s/__VIRTIO_NIC_QUEUES__/2/g" /usr/src/ce_$i/ce_$i.xml
           sed -i -e "s/__CE_DISK_IMAGE__/\/var\/lib\/libvirt\/images\/ce_$i\.qcow2/g" /usr/src/ce_$i/ce_$i.xml
           sed -i -e "s/__CE_CLOUDINIT_ISO__/\/usr\/src\/ce_$i\/cidata.iso/g" /usr/src/ce_$i/ce_$i.xml
           sed -i -e "s/__CE_HOSTNAME__/$ce_hostname/g" /usr/src/ce_$i/ce_$i.xml
-          # guest cloudinit
+          # cloudinit template population
           echo "instance_id: $instance_serial_number" > /usr/src/ce_$i/meta-data
           echo "local-hostname: $ce_hostname" >> /usr/src/ce_$i/meta-data
           cp /etc/ce_userdata_template.yaml /usr/src/ce_$i/user-data
-          sed -i -e "s/__ETH0_IP_CIDR__/$ce_external_ip_cidr/g" /usr/src/ce_$i/user-data
-          sed -i -e "s/__ETH0_GATEWAY__/$host_external_ip/g" /usr/src/ce_$i/user-data
-          sed -i -e "s/__ETH1_IP_CIDR__/$ce_internal_ip_cidr/g" /usr/src/ce_$i/user-data
-          sed -i -e "s/__ETH1_GATEWAY__/$host_internal_ip/g" /usr/src/ce_$i/user-data
+          # sed -i -e "s/__CE_HOSTNAME__/$ce_hostname/g" /usr/src/ce_$i/user-data
+          # sed -i -e "s/__ETH0_IP_CIDR__/$ce_external_ip_cidr/g" /usr/src/ce_$i/user-data
+          # sed -i -e "s/__ETH0_GATEWAY__/$external_host_ip/g" /usr/src/ce_$i/user-data
+          # sed -i -e "s/__ETH1_IP_CIDR__/$ce_internal_ip_cidr/g" /usr/src/ce_$i/user-data
+          # sed -i -e "s/__ETH1_GATEWAY__/$internal_host_ip/g" /usr/src/ce_$i/user-data
+          # build the cloudinit config disk ISO
           cd /usr/src/ce_$i/
           genisoimage -output cidata.iso -volid cidata -joliet -rock user-data meta-data
+          # define and start the CE
           virsh define /usr/src/ce_$i/ce_$i.xml
           virsh start $ce_hostname
           virsh autostart $ce_hostname
+          # add EIP NAT
           iptables -t nat -A POSTROUTING -s $ce_external_ip_address -j SNAT --to-source $ce_eip
           iptables -t nat -A PREROUTING -i bond0 -d $ce_eip -j DNAT --to-destination $ce_external_ip_address
           iptables -A FORWARD -s $ce_eip -j ACCEPT
           iptables -A FORWARD -d $ce_external_ip_address -j ACCEPT
       done
       /usr/libexec/iptables/iptables.init save
+      # restart dnsmasq services in case they started before the bridges were ready
+      systemctl restart dnsmasq-br-external.service
+      systemctl restart dnsmasq-br-internal.service
 runcmd:
   - bash /sbin/create_ce_from_metal.sh
