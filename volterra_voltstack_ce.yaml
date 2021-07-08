@@ -68,8 +68,7 @@ write_files:
          <vcpu placement='static'>${vcpus}</vcpu>
         <os>
           <type arch='x86_64' machine='pc-i440fx-rhel7.0.0'>hvm</type>
-          <boot dev='hd'/># let ip_hosts=${host_count}*${ce_count}+${host_count}+1
-          
+          <boot dev='hd'/>
         </os>
         <features>
           <acpi/>
