@@ -31,7 +31,7 @@ Equinix provides reservable public IP CIDR blocks which can be attached to an Eq
 
 In order to support the requirement for all Volterra CE VMs to be on the same logical IP subnet, while maintain the network redudancy provied by the network bonded Equinix Metal deployment, this workspace deploys the Equinix Metal server instances in a hybrid network type.
 
-In order to support the deployment of Volterra CE VMs across redudant Equinix Metal servers for high-availability, unmanaged VLANs will be attached to each Equinix Metal server with full L3 (IPv4) management ocurring on the booted CENTOS system. Volterra CE VMs support the present of a site local external and a site local internal network interface. This workspace will create two Equinix Metal VLANs, one external and the other internal.
+In order to support the deployment of Volterra CE VMs across redudant Equinix Metal servers for high-availability, unmanaged VLANs will be attached to each Equinix Metal server with full L3 (IPv4) management ocurring on the booted CENTOS system. Volterra CE VMs support a site local external and a site local internal network interface. This workspace will create two Equinix Metal VLANs, one external and the other internal.
 
 ![Equinix Metal Deployment](./assets/equinix-metal-deployment.jpg)
 
