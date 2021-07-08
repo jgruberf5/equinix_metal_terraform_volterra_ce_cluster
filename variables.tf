@@ -69,6 +69,15 @@ variable "volterra_tenant" {
 }
 
 ##################################################################################
+# The Volterra Site token
+##################################################################################
+variable "volterra_site_token" {
+  type        = string
+  default     = ""
+  description = "The Volterra Site token"
+}
+
+##################################################################################
 # The Volterra Site name for this site
 ##################################################################################
 variable "volterra_site_name" {

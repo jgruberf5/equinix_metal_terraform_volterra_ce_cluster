@@ -173,7 +173,7 @@ data "template_file" "user_data" {
     certified_hardware = local.certified_hardware
     latitude           = lookup(local.facility_location_map, substr(var.facility, 0, 2)).latitude
     longitude          = lookup(local.facility_location_map, substr(var.facility, 0, 2)).longitude
-    site_token         = volterra_token.volterra_site_token.id
+    site_token         = var.volterra_site_token
     profile            = var.plan
     inside_nic         = local.inside_nic
     region             = var.facility
@@ -188,7 +188,6 @@ data "template_file" "user_data" {
     ce_download_url    = var.volterra_download_url
     eips_cidr          = local.cidr_subnets[count.index]
   }
-  depends_on = [volterra_token.volterra_site_token]
 }
 
 data "metal_project_ssh_key" "project_ssh_key" {
