@@ -7,7 +7,7 @@ This terraform workspace creates an Volterra site on Equinix Metal servers.
 
 Euquinix Metal services provide the necessary services to bootstrap various linux distributions on dedicated servers running in various Equinix facilities around the world. By default, the bootstrapped linux system presents a single LACP bonded network interface with a public routable IP and an private IP which is routable within the specific Equinix facility. The underlying server model, CPU and RAM, are designated by selecting an Equinix *plan*.
 
-Volterra is a distribued application delivery system (ADN) providing Internet SaaS based deployment of workloads to multi-cloud and edge deployed infrastructures through a dedicated global application delivery network.
+Volterra is a distribued application delivery system providing Internet SaaS based deployment of workloads to multi-cloud and edge deployed infrastructures through a dedicated global application delivery network (ADN).
 
 ## Volterra Customer Edge Deployment
 
