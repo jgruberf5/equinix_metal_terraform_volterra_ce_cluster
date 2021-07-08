@@ -37,7 +37,9 @@ In order to support the deployment of Volterra CE VMs across redudant Equinix Me
 
 Each of the Equinix VLANs will have private (RFC1918) IPv4 address spaces configured via terraform variables. This IPv4 address spaced used for the Volterra CE VMs is managed by distributed IPAM services running on the each Equinux Metal instance. The external and internal VLANs, and the CENTOS managed IPv4 address space, can be extended to workload servers providing customer edge workloads through the Volterra ADN.
 
-![Equinix Metal Deployment](./assets/equinix-metal-deployment-subnets.jpg)
+![Equinix Metal IPv4 Subnets Deployment](./assets/equinix-metal-deployment-subnets.jpg)
 
-The external IPv4 address space on the external VLAN will have 1:1 NAT applied for Internet access via Equinix Metal EIP attachement. The Equinix Metal reserved public network CIDR will be provisioned and attached to the appropriate Equinix Metal server as part of the terraform orchestration. Providing 1:1 EIP attachment to each CE VM provides the greatest connection diversity for the Equinix Metal bonded LACP hash and allows for Volterra TLS or IPSEC connectivity back to the Volterra SaaS.
+The external IPv4 address space on the external VLAN will have 1:1 NAT applied for Internet access via Equinix Metal EIP attachement. An Equinix Metal reserved public network CIDR will be provisioned and attached to the appropriate Equinix Metal server as part of the terraform orchestration. Providing 1:1 EIP attachment to each CE VM provides the greatest connection diversity for the Equinix Metal bonded LACP hash and allows for Volterra TLS or IPSEC connectivity back to the Volterra SaaS.
+
+![Equinix Metal IPv4 EIP Deployment](./assets/equinix-metal-deployment-eips.jpg)
 
