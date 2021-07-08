@@ -27,7 +27,7 @@ Deploying a Volterra CE site cluster requires:
 
 While Equinix Metal provides each server instance with an Internet routable management interface, there is no way to guarentee that the default public management interfaces for multiple devices are all provisioned from the same public subnet.
 
-Equinix provides reservable public IP CIDR blocks which can be attached to an Equinix Metal instance and static routed to its public management interface. The attachment of the reserved IP to a Equinix Metal instance (the creation of the static route within the Equinix facility) is referred to as an EIP (elastic IP).
+Equinix provides reservable public IP CIDR blocks which can be attached to an Equinix Metal instance and static routed to its public management interface. The attachment of the reserved IP addresses to a Equinix Metal instance (the creation of the static route within the Equinix facility) is referred to as an EIP (elastic IP).
 
 In order to support the requirement for all Volterra CE VMs to be on the same logical IP subnet, while maintain the network redudancy provied by the network bonded Equinix Metal deployment, this workspace deploys the Equinix Metal server instances in a hybrid network type.
 
