@@ -26,7 +26,7 @@ variable "project_id" {
 # Equinix Facility
 ##################################################################################
 variable "facility" {
-  default     = "dal11"
+  default     = "da11"
   description = "Equinix Facility"
   validation {
     condition = contains(["am", "ch", "da", "fr", "ny", "sv", "sg", "sy", "dc", "at", "hk", "ld", "la", "mr", "pa", "se", "sl", "tr"], substr(var.facility, 0 ,2))
@@ -143,7 +143,7 @@ variable "volterra_download_url" {
 # Volterra CE External Subnet CIDR
 ##################################################################################
 variable "volterra_external_cidr" {
-  default     = ""
+  default     = "192.168.122.0/24"
   description = "Volterra CE External Subnet CIDR"
 }
 
@@ -151,7 +151,7 @@ variable "volterra_external_cidr" {
 # Volterra CE Internal Subnet CIDR
 ##################################################################################
 variable "volterra_internal_cidr" {
-  default     = ""
+  default     = "192.168.180.0/24"
   description = "Volterra CE Internal Subnet CIDR"
 }
 

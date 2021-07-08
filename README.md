@@ -43,3 +43,31 @@ The external IPv4 address space on the external VLAN will have 1:1 NAT applied f
 
 ![Equinix Metal IPv4 EIP Deployment](./assets/equinix-metal-deployment-eips.jpg)
 
+## Required Terraform Providers
+
+This workspace uses both the Equinix Metal and Volterra terraform providers. Details on their use can be found here:
+
+[Equinix Metal Terraform Provider](https://registry.terraform.io/providers/equinix/metal/latest/docs)
+[Volterra Terraform Provider](https://registry.terraform.io/providers/volterraedge/volterra/latest/docs)
+### Variables values
+The following terraform variables are supported:
+
+| Key | Definition | Required/Optional | Default Value |
+| --- | ---------- | ----------------- | ------------- |
+| `auth_token` | The Equinix Metal API Token | required |  |
+| `project_id` | The Equinix Metal Project ID | required | |
+| `facility` | The Equinix Metal facility code | required | da11 |
+| `plan` | The Equinx Metal plan, either c3.small.x86 or c3.medium.x86 | required | c3.small.x86 |
+| `server_count` | The Equinix Metal server count, between 3..9  | required | 3 |
+| `volterra_tenant` | The Volterra SaaS tenant name | required | |
+| `volterra_site_token` | The Volterra site token to register CE instances | required | |
+| `volterra_site_name` | The Volterra site name to use for registration | required |  |
+| `volterra_fleet_label` | The Volterra fleet label for the CE instance | required |  |
+| `volterra_voltstack` | Add the Voltstack components to the Voltmesh in the CE instances | optional | false |
+| `volterra_admin_password` | The admin user password for the CE instances | optional | randomized string |
+| `volterra_ssl_tunnels` | Allow SSL tunnels to connect the Volterra CE to the RE | optional | false |
+| `volterra_ipsec_tunnels` | Allow IPSEC tunnels to connect the Volterra CE to the RE | optional | true |
+| `volterra_download_url` | The URL for the Volterra CE qcow2 disk image | optional | https://downloads.volterra.io/releases/images/2021-03-01/centos-7.2009.5-202103011045.qcow2 |
+| `volterra_external_cidr` | The external VLAN CIDR block to use | required | 192.168.122.0/24 |
+| `volterra_internal_cidr` | The internal VLAN CIDR block to use | required | 192.168.180.0/24 |
+| `volterra_internal_networks` | List of IPv4 subnets to add as site local inside reachable subnets |
