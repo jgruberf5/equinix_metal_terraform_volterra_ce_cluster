@@ -243,7 +243,7 @@ resource "metal_reserved_ip_block" "ce_external_network" {
 }
 
 data "metal_project_ssh_key" "project_ssh_key" {
-  search     = "jgruber"
+  search     = var.metal_ssh_key_name
   project_id = var.metal_project_id
 }
 

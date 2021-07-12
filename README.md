@@ -61,6 +61,7 @@ The following terraform variables are supported:
 | `metal_plan` | The Equinx Metal plan, either c3.small.x86 or c3.medium.x86 | required | c3.small.x86 |
 | `metal_server_count` | The Equinix Metal server count, 1, or between 3..8  | required | 3 |
 | `metal_ce_count` | The number of Volterra CE instances per metal server, between 1..3  | required | 3 |
+| `metal_ssh_key_name` | The name of the project SSH key to inject for metal server access | required | |
 | `volterra_tenant` | The Volterra SaaS tenant name | required | |
 | `volterra_site_token` | The Volterra site token to register CE instances | required | |
 | `volterra_site_name` | The Volterra site name to use for registration | required |  |

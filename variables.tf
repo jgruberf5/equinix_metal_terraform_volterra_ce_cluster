@@ -60,6 +60,15 @@ variable "metal_server_count" {
 }
 
 ##################################################################################
+# Equinix Metal Server profile SSH key name
+##################################################################################
+variable "metal_ssh_key_name" {
+  type        = string
+  default     = ''
+  description = "Equinix Metal Server profile SSH key name"
+}
+
+##################################################################################
 # Volterra Node Count per Metal Server
 ##################################################################################
 variable "metal_ce_count" {
