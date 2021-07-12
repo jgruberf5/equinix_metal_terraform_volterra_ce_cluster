@@ -12,7 +12,7 @@ terraform {
 
 # Configure the Equinix Metal Provider.
 provider "metal" {
-  auth_token = var.auth_token
+  auth_token = var.metal_auth_token
 }
 
 provider "volterra" {

@@ -48,17 +48,19 @@ The external IPv4 address space used for Volterra CE VMs will have 1:1 NAT appli
 This workspace uses both the Equinix Metal and Volterra terraform providers. Details on their use can be found here:
 
 [Equinix Metal Terraform Provider](https://registry.terraform.io/providers/equinix/metal/latest/docs)
+
 [Volterra Terraform Provider](https://registry.terraform.io/providers/volterraedge/volterra/latest/docs)
 ### Variables values
 The following terraform variables are supported:
 
 | Key | Definition | Required/Optional | Default Value |
 | --- | ---------- | ----------------- | ------------- |
-| `auth_token` | The Equinix Metal API Token | required |  |
-| `project_id` | The Equinix Metal Project ID | required | |
-| `facility` | The Equinix Metal facility code | required | da11 |
-| `plan` | The Equinx Metal plan, either c3.small.x86 or c3.medium.x86 | required | c3.small.x86 |
-| `server_count` | The Equinix Metal server count, between 3..9  | required | 3 |
+| `metal_auth_token` | The Equinix Metal API Token | required |  |
+| `metal_project_id` | The Equinix Metal Project ID | required | |
+| `metal_facility` | The Equinix Metal facility code | required | da11 |
+| `metal_plan` | The Equinx Metal plan, either c3.small.x86 or c3.medium.x86 | required | c3.small.x86 |
+| `metal_server_count` | The Equinix Metal server count, 1, or between 3..8  | required | 3 |
+| `metal_ce_count` | The number of Volterra CE instances per metal server, between 1..3  | required | 3 |
 | `volterra_tenant` | The Volterra SaaS tenant name | required | |
 | `volterra_site_token` | The Volterra site token to register CE instances | required | |
 | `volterra_site_name` | The Volterra site name to use for registration | required |  |

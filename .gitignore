@@ -9,8 +9,12 @@
 .terraform.lock.hcl
 
 # local certificates
+*.pem
 *.p12
 auth.env
+
+# local site token state
+*_token.txt
 
 # Crash log files
 crash.log

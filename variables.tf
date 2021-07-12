@@ -9,7 +9,7 @@ variable "TF_VERSION" {
 ##################################################################################
 # Equinix API Token
 ##################################################################################
-variable "auth_token" {
+variable "metal_auth_token" {
   default     = ""
   description = "Equinix API Token"
 }
@@ -17,7 +17,7 @@ variable "auth_token" {
 ##################################################################################
 # Equinix Project ID
 ##################################################################################
-variable "project_id" {
+variable "metal_project_id" {
   default     = ""
   description = "Equinix Project ID"
 }
@@ -25,11 +25,11 @@ variable "project_id" {
 ##################################################################################
 # Equinix Facility
 ##################################################################################
-variable "facility" {
+variable "metal_facility" {
   default     = "da11"
   description = "Equinix Facility"
   validation {
-    condition = contains(["am", "ch", "da", "fr", "ny", "sv", "sg", "sy", "dc", "at", "hk", "ld", "la", "mr", "pa", "se", "sl", "tr"], substr(var.facility, 0 ,2))
+    condition = contains(["am", "ch", "da", "fr", "ny", "sv", "sg", "sy", "dc", "at", "hk", "ld", "la", "mr", "pa", "se", "sl", "tr"], substr(var.metal_facility, 0 ,2))
     error_message = "Valid facilities start with (am, ch, da, fr, ny, sv, sg, sy, dc, at, hk, ld, la, mr, pa, se, sl, tr)."
   }
 }
@@ -37,11 +37,11 @@ variable "facility" {
 ##################################################################################
 # Equinix Instance Plan
 ##################################################################################
-variable "plan" {
+variable "metal_plan" {
   default     = "c3.small.x86"
   description = "Equinix Instance Plan"
   validation {
-    condition = contains(["c3.small.x86", "c3.medium.x86"], var.plan)
+    condition = contains(["c3.small.x86", "c3.medium.x86"], var.metal_plan)
     error_message = "Valid plans for site deployment are (c3.small.x86, c3.medium.x86)."
   }
 }
@@ -49,13 +49,26 @@ variable "plan" {
 ##################################################################################
 # Equinix Metal Server Count
 ##################################################################################
-variable "server_count" {
+variable "metal_server_count" {
   type        = number
   default     = 3
   description = "Equinix metal instance count"
   validation  {
-    condition = contains([3,4,5,6,7,8], var.server_count)
-    error_message = "The variable server_count must be between 3 and 8."
+    condition = contains([1,3,4,5,6,7,8], var.metal_server_count)
+    error_message = "The variable server_count must be between 1 or between 3 and 8."
+  }
+}
+
+##################################################################################
+# Volterra Node Count per Metal Server
+##################################################################################
+variable "metal_ce_count" {
+  type        = number
+  default     = 3
+  description = "Volterra Node Count per Metal Server"
+  validation  {
+    condition = contains([1,2,3], var.metal_ce_count)
+    error_message = "The variable server_count must be between 1 and 3."
   }
 }
 
