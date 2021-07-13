@@ -290,8 +290,7 @@ write_files:
         echo "IPADDR=$ip_address" >> /etc/sysconfig/network-scripts/ifcfg-$name
         echo "PREFIX=$ip_prefix" >> /etc/sysconfig/network-scripts/ifcfg-$name
         echo "NM_CONTROLLED=no" >> /etc/sysconfig/network-scripts/ifcfg-$name
-        systemctl restart network
-        deploy_dhcp_services $name $ip_address $catalog_file 
+        systemctl restart network 
       }
       #### HOST LEVEL CONFIGURATION ####
       # Load netstack modules
@@ -335,7 +334,8 @@ write_files:
       virsh net-undefine default
       systemctl restart libvirtd
       #### External Network ####
-      create_vlan_bridge bond0 ${external_vlan_id} $external_host_ip $external_prefix br-external /etc/ce_external_ip_addresses        
+      create_vlan_bridge bond0 ${external_vlan_id} $external_host_ip $external_prefix br-external /etc/ce_external_ip_addresses
+      deploy_dhcp_services br-external $external_host_ip /etc/ce_external_ip_addresses      
       #### Internal Network ###
       create_vlan_bridge bond0 ${internal_vlan_id} $internal_host_ip $internal_prefix br-internal /etc/ce_internal_ip_addresses
       ### Download CE image
