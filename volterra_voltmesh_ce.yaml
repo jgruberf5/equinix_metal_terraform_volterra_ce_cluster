@@ -267,12 +267,11 @@ write_files:
         systemctl start dnsmasq-$name.service
       }
       function create_vlan_bridge() {
-        local interface=$1
-        local vlan_id=$2
-        local ip_address=$3
-        local ip_prefix=$4
-        local name=$5
-        local catalog_file=$6
+        local name=$1
+        local interface=$2
+        local vlan_id=$3
+        local ip_address=$4
+        local ip_prefix=$5
         # VLAN interface
         echo "DEVICE=$interface.$vlan_id" > /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
         echo "BOOTPROTO=none" >> /etc/sysconfig/network-scripts/ifcfg-$interface.$vlan_id
@@ -332,10 +331,10 @@ write_files:
       virsh net-undefine default
       systemctl restart libvirtd
       #### External Network ####
-      create_vlan_bridge bond0 ${external_vlan_id} $external_host_ip $external_prefix br-external /etc/ce_external_ip_addresses
+      create_vlan_bridge br-external bond0 ${external_vlan_id} $external_host_ip $external_prefix
       deploy_dhcp_services br-external $external_host_ip /etc/ce_external_ip_addresses      
       #### Internal Network ###
-      create_vlan_bridge bond0 ${internal_vlan_id} $internal_host_ip $internal_prefix br-internal /etc/ce_internal_ip_addresses
+      create_vlan_bridge br-internal bond0 ${internal_vlan_id} $internal_host_ip $internal_prefix
       ### Download CE image
       curl --retry 999 --retry-max-time 0 -o /var/lib/libvirt/images/ce.qcow2 ${ce_download_url}
       #### GUEST LEVEL CONFIGURATION ####
