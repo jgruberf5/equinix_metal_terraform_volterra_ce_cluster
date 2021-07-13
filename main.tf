@@ -20,21 +20,21 @@ locals {
   plan_map = {
     "c3.small.x86" = {
       "ce_vcpus" = floor(8 / var.metal_ce_count)
-      "ce_ram" = floor(29360113 / var.metal_ce_count)
+      "ce_ram"   = floor(29360113 / var.metal_ce_count)
     },
     "c3.medium.x86" = {
       "ce_vcpus" = floor(24 / var.metal_ce_count),
-      "ce_ram" = floor(62914528 / var.metal_ce_count)
+      "ce_ram"   = floor(62914528 / var.metal_ce_count)
     }
   }
   reserved_ip_quantity_map = {
     "c3.small.x86" = {
       "quantity" = var.metal_server_count > 4 ? 32 : 16
-      "cidr" = 30
+      "cidr"     = 30
     },
     "c3.medium.x86" = {
       "quantity" = var.metal_server_count > 4 ? 32 : 16
-      "cidr" = 30
+      "cidr"     = 30
     }
   }
   facility_location_map = {
@@ -128,21 +128,21 @@ locals {
   inside_nic         = var.volterra_voltstack ? "eth0" : "eth1"
   certified_hardware = element(local.certified_hardware_map[local.which_stack].*, 1)
   template_file      = file(local.template_map[local.which_stack])
-  total_ces = var.metal_ce_count * var.metal_server_count
-  ce_vcpus = lookup(local.plan_map, var.metal_plan).ce_vcpus
-  ce_ram = lookup(local.plan_map, var.metal_plan).ce_ram
-  cidr_subnets = metal_reserved_ip_block.ce_external_network.cidr == 28 ? cidrsubnets(metal_reserved_ip_block.ce_external_network.cidr_notation, 2, 2, 2, 2) : cidrsubnets(metal_reserved_ip_block.ce_external_network.cidr_notation, 3, 3, 3, 3, 3, 3, 3, 3, 3)
-  cluster_masters = var.metal_server_count > 2 ? 3 : 1
+  total_ces          = var.metal_ce_count * var.metal_server_count
+  ce_vcpus           = lookup(local.plan_map, var.metal_plan).ce_vcpus
+  ce_ram             = lookup(local.plan_map, var.metal_plan).ce_ram
+  cidr_subnets       = metal_reserved_ip_block.ce_external_network.cidr == 28 ? cidrsubnets(metal_reserved_ip_block.ce_external_network.cidr_notation, 2, 2, 2, 2) : cidrsubnets(metal_reserved_ip_block.ce_external_network.cidr_notation, 3, 3, 3, 3, 3, 3, 3, 3, 3)
+  cluster_masters    = var.metal_server_count > 2 ? 3 : 1
 }
 
 # Create an Volterra Site Token
 # Not using Volterra resource volterra_token - https://github.com/volterraedge/terraform-provider-volterra/issues/67
 resource "null_resource" "volterra_site_token" {
   triggers = {
-    tenant          = var.volterra_tenant
-    site_name       = var.volterra_site_name
+    tenant    = var.volterra_tenant
+    site_name = var.volterra_site_name
     # always force update
-    timestamp       = timestamp()
+    timestamp = timestamp()
   }
 
   provisioner "local-exec" {
@@ -159,13 +159,16 @@ resource "null_resource" "volterra_site_token" {
 }
 
 data "local_file" "volterra_site_token" {
-    filename = "${path.module}/${var.volterra_site_name}_site_token.txt"
-    depends_on = [null_resource.volterra_site_token]
+  filename   = "${path.module}/${var.volterra_site_name}_site_token.txt"
+  depends_on = [null_resource.volterra_site_token]
+}
+
+data "volterra_namespace" "system" {
+  name = "system"
 }
 
 # Registration Accept
 resource "null_resource" "site_registration" {
-
   triggers = {
     site                = var.volterra_site_name,
     tenant              = var.volterra_tenant,
@@ -176,29 +179,90 @@ resource "null_resource" "site_registration" {
     allow_ipsec_tunnels = var.volterra_ipsec_tunnels ? "true" : "false",
     voltstack           = var.volterra_voltstack ? "true" : "false"
   }
-
   depends_on = [metal_port_vlan_attachment.ce_internal_vlan]
-
   provisioner "local-exec" {
     when       = create
     command    = "${path.module}/volterra_site_registration_actions.py --delay 240 --action 'registernodes' --site '${self.triggers.site}' --tenant '${self.triggers.tenant}' --token '${self.triggers.token}' --ssl ${self.triggers.allow_ssl_tunnels} --ipsec ${self.triggers.allow_ipsec_tunnels} --masters ${self.triggers.cluster_masters} --size ${self.triggers.size} --voltstack '${self.triggers.voltstack}'"
     on_failure = fail
   }
-
   provisioner "local-exec" {
     when       = destroy
     command    = "${path.module}/volterra_site_registration_actions.py --action 'sitedelete' --site '${self.triggers.site}' --tenant '${self.triggers.tenant}' --token '${self.triggers.token}' --voltstack '${self.triggers.voltstack}'"
     on_failure = fail
   }
-
 }
 
 # TODO: add other volterra objects to create for the site here
 
+# Virtual Interface
+resource "volterra_network_interface" "internal_dhcp_server" {
+  name      = "${var.volterra_site_name}-internal"
+  namespace = "system"
+  ethernet_interface {
+    device                    = "eth1"
+    site_local_inside_network = true
+    not_primary               = true
+    cluster                   = true
+    untagged                  = true
+    dhcp_server {
+      dhcp_networks {
+        network_prefix = var.volterra_internal_cidr
+        pool_settings  = "INCLUDE_IP_ADDRESSES_FROM_DHCP_POOLS"
+        pools {
+          start_ip = cidrhost(var.volterra_internal_cidr, (var.metal_server_count * var.metal_ce_count + 1))
+          end_ip   = cidrhost(cidrsubnet(var.volterra_internal_cidr, 1, 1), 0)
+        }
+        first_address = true
+        same_as_dgw   = true
+      }
+      automatic_from_start = true
+    }
+  }
+}
+
 # Virtual Network
 
 # Network Connector
+resource "volterra_network_connector" "global" {
+  name      = "${var.volterra_site_name}-global"
+  namespace = "system"
+  sli_to_global_dr {
+    global_vn {
+      name      = "public"
+      namespace = "shared"
+      tenant    = "ves-io"
+    }
+  }
+  disable_forward_proxy = true
+}
 
+# Fleet
+resource "volterra_fleet" "fleet" {
+  name                     = var.volterra_site_name
+  namespace                = "system"
+  fleet_label              = var.volterra_fleet_label
+  no_bond_devices          = true
+  no_dc_cluster_group      = true
+  disable_gpu              = true
+  logs_streaming_disabled  = true
+  default_storage_class    = true
+  no_storage_device        = true
+  no_storage_interfaces    = true
+  no_storage_static_routes = true
+  deny_all_usb             = true
+  interface_list {
+    interfaces {
+      name      = "${var.volterra_site_name}-internal"
+      namespace = "system"
+      tenant    = data.volterra_namespace.system.tenant_name
+    }
+  }
+  network_connectors {
+    name      = "${var.volterra_site_name}-global"
+    namespace = "system"
+    tenant    = data.volterra_namespace.system.tenant_name
+  }
+}
 
 # Create all the configuration files for the deployment
 resource "random_uuid" "serial_number_seed" {
@@ -235,10 +299,10 @@ data "template_file" "user_data" {
 }
 
 resource "metal_reserved_ip_block" "ce_external_network" {
-  project_id = var.metal_project_id
-  type = "public_ipv4"
-  metro = substr(var.metal_facility, 0, 2)
-  quantity = lookup(local.reserved_ip_quantity_map, var.metal_plan).quantity
+  project_id  = var.metal_project_id
+  type        = "public_ipv4"
+  metro       = substr(var.metal_facility, 0, 2)
+  quantity    = lookup(local.reserved_ip_quantity_map, var.metal_plan).quantity
   description = "Volterra Site ${var.volterra_site_name}"
 }
 
@@ -249,22 +313,22 @@ data "metal_project_ssh_key" "project_ssh_key" {
 
 # Create the Hypervisor Hosts
 resource "metal_device" "ce_instance" {
-  count            = var.metal_server_count
-  hostname         = "${var.volterra_site_name}-metal-${count.index}"
-  project_id       = var.metal_project_id
-  facilities       = [var.metal_facility]
-  plan             = var.metal_plan
-  operating_system = "centos_7"
-  billing_cycle    = "hourly"
-  project_ssh_key_ids = [ data.metal_project_ssh_key.project_ssh_key.id ]
-  user_data = data.template_file.user_data[count.index].rendered
+  count               = var.metal_server_count
+  hostname            = "${var.volterra_site_name}-metal-${count.index}"
+  project_id          = var.metal_project_id
+  facilities          = [var.metal_facility]
+  plan                = var.metal_plan
+  operating_system    = "centos_7"
+  billing_cycle       = "hourly"
+  project_ssh_key_ids = [data.metal_project_ssh_key.project_ssh_key.id]
+  user_data           = data.template_file.user_data[count.index].rendered
 }
 
 # Create routes (EIPs) for CE external NATs
 resource "metal_ip_attachment" "external_EIPs" {
-  count            = var.metal_server_count
-  device_id        = metal_device.ce_instance[count.index].id
-  cidr_notation    = local.cidr_subnets[count.index]
+  count         = var.metal_server_count
+  device_id     = metal_device.ce_instance[count.index].id
+  cidr_notation = local.cidr_subnets[count.index]
 }
 
 # Provision the switch enviorment for hybrid-bonded mode deployment
