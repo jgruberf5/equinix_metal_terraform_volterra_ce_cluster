@@ -231,7 +231,7 @@ write_files:
         echo "dhcp-optsfile=/etc/dnsmasq-$name/dhcp.opts" >> /etc/dnsmasq-$name/dnsmasq.conf
         echo "addn-hosts=/etc/dnsmasq-$name/dhcp.hosts" >> /etc/dnsmasq-$name/dnsmasq.conf
         echo "dhcp-leasefile=/etc/dnsmasq-$name/dnsmasq.leases" >> /etc/dnsmasq-$name/dnsmasq.conf
-        if [[ ! -z "$catalog_file" ]];
+        if [[ ! -z "$addresses_catalog" ]];
         then
           for h in $(seq ${host_count})
           do            
