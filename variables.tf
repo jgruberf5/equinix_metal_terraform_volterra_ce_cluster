@@ -64,7 +64,7 @@ variable "metal_server_count" {
 ##################################################################################
 variable "metal_ssh_key_name" {
   type        = string
-  default     = ''
+  default     = ""
   description = "Equinix Metal Server profile SSH key name"
 }
 
