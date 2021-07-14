@@ -100,7 +100,7 @@ Collect your Equinix API Token:
 
 ![Equinix API Token](./assets/equinix-api-token.jpg)
 
-Download you Volterra PKCS12 certificate and key bundle:
+Download your Volterra PKCS12 certificate and key bundle:
 
 ![Volterra PKI Certificates](./assets/volterra-certificates.jpg)
 
@@ -111,8 +111,7 @@ $ git clone https://github.com/jgruberf5/equinix_metal_terraform_volterra_ce_clu
 Cloning into 'equinix_metal_terraform_volterra_ce_cluster'...
 ...., 
 done.
-$ cd equinix_metal_terraform_volterra_ce_cluster/
-/equinix_metal_terraform_volterra_ce_cluster$
+$ cd equinix_metal_terraform_volterra_ce_cluster
 ```
 
 Export environment variables for the Volterra terraform provider:
@@ -122,7 +121,7 @@ $ export VOLT_API_P12_FILE=f5-demoteam.equinix-integration.p12
 $ export VES_P12_PASSWORD=CertP@$$w0rd
 ```
 
-Create and populate a terrform variable file:
+Create and populate a terrform variable file (our is called test.tfvars):
 
 ```bash
 $ cat test.tfvars
@@ -151,7 +150,7 @@ Download and initialize required terraform providers:
 $ terraform init
 ```
 
-Plan and apply your workspace deployment
+Plan and apply your workspace deployment:
 
 ```bash
 $ terraform plan -var-file test.tfvars
