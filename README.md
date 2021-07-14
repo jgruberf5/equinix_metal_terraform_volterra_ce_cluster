@@ -39,9 +39,9 @@ Each of the Equinix VLANs will have private (RFC1918) IPv4 address spaces config
 
 **At this time please always set the `volterra_internal_dhcp_hosts` to greater than one (1). There is [a notice in the Volterra API documentation](https://www.volterra.io/docs/api/network-interface) that:**
 
-```bash
+*
 Currently, DHCP client should always be enabled, setting static address on a network interface is not supported.
-```
+*
 
 ![Equinix Metal IPv4 Subnets Deployment](./assets/equinix-metal-deployment-subnets.jpg)
 
