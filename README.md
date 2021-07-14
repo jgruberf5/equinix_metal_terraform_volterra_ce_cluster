@@ -78,3 +78,88 @@ The following terraform variables are supported:
 | `volterra_internal_dhcp_hosts` | The number of DHCPv4 host to support on the internal VLAN | 100 |
 | `volterra_internal_networks` | List of IPv4 subnets to add as site local inside reachable subnets | [] |
 | `volterra_internal_networks_gateway` | The next hop gateway address to reach the internal reachable subnet hosts | |
+
+### Example Usage
+
+Assure you are running terraform 0.13 or greater.
+
+```bash
+$ terraform --version
+Terraform v1.0.2
+on linux_amd64
+```
+
+Assure you are running python3 greater than 3.4.
+
+```bash
+$ python3 --version
+Python 3.8.10
+```
+
+Collect your Equinix API Token:
+
+![Equinix API Token](./assets/equinix-api-token.jpg)
+
+Download you Volterra PKCS12 certificate and key bundle:
+
+![Volterra PKI Certificates](./assets/volterra-certificates.jpg)
+
+Clone the workspace repository and change directory into the workspace folder:
+
+```bash
+$ git clone https://github.com/jgruberf5/equinix_metal_terraform_volterra_ce_cluster
+Cloning into 'equinix_metal_terraform_volterra_ce_cluster'...
+...., 
+done.
+$ cd equinix_metal_terraform_volterra_ce_cluster/
+/equinix_metal_terraform_volterra_ce_cluster$
+```
+
+Export environment variables for the Volterra terraform provider:
+
+```bash
+$ export VOLT_API_P12_FILE=f5-demoteam.equinix-integration.p12
+$ export VES_P12_PASSWORD=CertP@$$w0rd
+```
+
+Create and populate a terrform variable file:
+
+```bash
+$ cat test.tfvars
+metal_project_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+metal_auth_token = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+metal_facility = "da11"
+metal_plan = "c3.small.x86"
+metal_server_count = 3
+metal_ce_count = 1
+metal_ssh_key_name = "operations"
+volterra_tenant = "f5-demoteam"
+volterra_site_name = "f5-demoteam-equinix-da11-01"
+volterra_fleet_label = "f5-demoteam-equinix-da11-01"
+volterra_admin_password = "CEAdminP@$$W0rd"
+volterra_voltstack = false
+volterra_ssl_tunnels = true
+volterra_ipsec_tunnels = true
+volterra_external_cidr = "192.168.122.0/24"
+volterra_internal_cidr = "192.168.180.0/24"
+volterra_internal_dhcp_hosts = 100
+```
+
+Download and initialize required terraform providers:
+
+```bash
+$ terraform init
+```
+
+Plan and apply your workspace deployment
+
+```bash
+$ terraform plan -var-file test.tfvars
+.....
+Plan: 28 to add, 0 to change, 0 to destroy.
+$ terraform apply -var-file test.tfvars
+.....
+Apply complete! Resources: 28 added, 0 changed, 0 destroyed.
+```
+
+The workspace apply will create the metal servers, build out the environment, download and run the Volterra CE instances, register the CE nodes with Volterra, and create the necessary fleet, network interfaces, virtual networks, and network connectors through the Volterra API.
