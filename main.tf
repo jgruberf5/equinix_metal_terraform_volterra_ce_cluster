@@ -242,8 +242,6 @@ resource "volterra_network_interface" "internal_static" {
     static_ip {
       node_static_ip {
         ip_address = "${cidrhost(var.volterra_internal_cidr, count.index + 2)}/${split("/", var.volterra_internal_cidr)[1]}"
-        default_gw = cidrhost(var.volterra_internal_cidr, 1)
-        dns_server = "8.8.8.8"
       }
     }
   }
