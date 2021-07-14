@@ -162,3 +162,9 @@ Apply complete! Resources: 28 added, 0 changed, 0 destroyed.
 ```
 
 The workspace apply will create the metal servers, build out the environment, download and run the Volterra CE instances, register the CE nodes with Volterra, and create the necessary fleet, network interfaces, virtual networks, and network connectors through the Volterra API.
+
+To remove your workspace deployment, simply exec the terraform destroy phase:
+
+```bash
+$ terraform destroy -var-file test.tfvars
+```
