@@ -157,6 +157,7 @@ variable "volterra_ipsec_tunnels" {
 # Volterra CE Download URL
 ##################################################################################
 variable "volterra_download_url" {
+  type = string
   default     = "https://downloads.volterra.io/releases/images/2021-03-01/centos-7.2009.5-202103011045.qcow2"
   description = "Volterra CE Download URL"
 }
@@ -165,6 +166,7 @@ variable "volterra_download_url" {
 # Volterra CE External Subnet CIDR
 ##################################################################################
 variable "volterra_external_cidr" {
+  type = string
   default     = "192.168.122.0/24"
   description = "Volterra CE External Subnet CIDR"
 }
@@ -173,14 +175,34 @@ variable "volterra_external_cidr" {
 # Volterra CE Internal Subnet CIDR
 ##################################################################################
 variable "volterra_internal_cidr" {
+  type = string
   default     = "192.168.180.0/24"
   description = "Volterra CE Internal Subnet CIDR"
+}
+
+##################################################################################
+# Number of internal hosts to support with DHCP
+##################################################################################
+variable "volterra_internal_dhcp_hosts" {
+  type = number
+  default     = 100
+  description = "Number of internal hosts to support with DHCP"
 }
 
 ##################################################################################
 # Volterra CE Reachable Subnet CIDRs
 ##################################################################################
 variable "volterra_reachable_networks" {
-  default     = ""
+  type        = list(string)
+  default     = []
   description = "Volterra CE Reachable Subnet CIDRs"
+}
+
+##################################################################################
+# Volterra CE Reachable Subnet CIDRs Next Hop Gateway Address
+##################################################################################
+variable "volterra_reachable_networks_gateway" {
+  type        = string
+  default     = ""
+  description = "Volterra CE Reachable Subnet CIDRs Next Hop Gateway Address"
 }

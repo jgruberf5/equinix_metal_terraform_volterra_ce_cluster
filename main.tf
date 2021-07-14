@@ -124,15 +124,18 @@ locals {
       "longitude" = "-79.3832"
     }
   }
-  which_stack        = var.volterra_voltstack ? "voltstack" : "voltmesh"
-  inside_nic         = var.volterra_voltstack ? "eth0" : "eth1"
-  certified_hardware = element(local.certified_hardware_map[local.which_stack].*, 1)
-  template_file      = file(local.template_map[local.which_stack])
-  total_ces          = var.metal_ce_count * var.metal_server_count
-  ce_vcpus           = lookup(local.plan_map, var.metal_plan).ce_vcpus
-  ce_ram             = lookup(local.plan_map, var.metal_plan).ce_ram
-  cidr_subnets       = metal_reserved_ip_block.ce_external_network.cidr == 28 ? cidrsubnets(metal_reserved_ip_block.ce_external_network.cidr_notation, 2, 2, 2, 2) : cidrsubnets(metal_reserved_ip_block.ce_external_network.cidr_notation, 3, 3, 3, 3, 3, 3, 3, 3, 3)
-  cluster_masters    = var.metal_server_count > 2 ? 3 : 1
+  which_stack                     = var.volterra_voltstack ? "voltstack" : "voltmesh"
+  inside_nic                      = var.volterra_voltstack ? "eth0" : "eth1"
+  certified_hardware              = element(local.certified_hardware_map[local.which_stack].*, 1)
+  template_file                   = file(local.template_map[local.which_stack])
+  total_ces                       = var.metal_ce_count * var.metal_server_count
+  ce_vcpus                        = lookup(local.plan_map, var.metal_plan).ce_vcpus
+  ce_ram                          = lookup(local.plan_map, var.metal_plan).ce_ram
+  cidr_subnets                    = metal_reserved_ip_block.ce_external_network.cidr == 28 ? cidrsubnets(metal_reserved_ip_block.ce_external_network.cidr_notation, 2, 2, 2, 2) : cidrsubnets(metal_reserved_ip_block.ce_external_network.cidr_notation, 3, 3, 3, 3, 3, 3, 3, 3, 3)
+  cluster_masters                 = var.metal_server_count > 2 ? 3 : 1
+  include_dhcp_server             = var.volterra_internal_dhcp_hosts > 0 ? 1 : 0
+  static_ce_addresses             = var.volterra_internal_dhcp_hosts > 0 ? 0 : 1
+  include_internal_gateway_routes = length(var.volterra_reachable_networks) > 0 ? 1 : 0
 }
 
 # Create an Volterra Site Token
@@ -194,8 +197,9 @@ resource "null_resource" "site_registration" {
 
 # TODO: add other volterra objects to create for the site here
 
-# Virtual Interface
+# Virtual Interface which provides DHCP
 resource "volterra_network_interface" "internal_dhcp_server" {
+  count     = local.include_dhcp_server
   name      = "${var.volterra_site_name}-internal"
   namespace = "system"
   ethernet_interface {
@@ -209,8 +213,11 @@ resource "volterra_network_interface" "internal_dhcp_server" {
         network_prefix = var.volterra_internal_cidr
         pool_settings  = "INCLUDE_IP_ADDRESSES_FROM_DHCP_POOLS"
         pools {
-          start_ip = cidrhost(var.volterra_internal_cidr, (var.metal_server_count * var.metal_ce_count + 1))
-          end_ip   = cidrhost(cidrsubnet(var.volterra_internal_cidr, 1, 1), 0)
+          # leave the 0 host for the network and the 1 host for the gateway
+          start_ip = cidrhost(var.volterra_internal_cidr, 2)
+          # whole range would look like this
+          # end_ip   = cidrhost(var.volterra_internal_cidr, pow(2, (32 - tonumber(split("/", var.volterra_internal_cidr)[1])))-2)
+          end_ip = cidrhost(var.volterra_internal_cidr, 2 + var.volterra_internal_dhcp_hosts)
         }
         first_address = true
         same_as_dgw   = true
@@ -220,7 +227,39 @@ resource "volterra_network_interface" "internal_dhcp_server" {
   }
 }
 
+# Virtual Interface defining static IPs for the CEs
+resource "volterra_network_interface" "internal_static" {
+  count     = local.static_ce_addresses * (var.metal_server_count * var.metal_ce_count)
+  name      = "${var.volterra_site_name}-ce-${count.index + 1}"
+  namespace = "system"
+  ethernet_interface {
+    device                    = "eth1"
+    site_local_inside_network = true
+    not_primary               = true
+    cluster                   = false
+    node                      = "${var.volterra_site_name}-ce-${count.index + 1}"
+    untagged                  = true
+    static_ip {
+      node_static_ip {
+        ip_address = "${cidrhost(var.volterra_internal_cidr, count.index + 1)}/${split("/", var.volterra_internal_cidr)[1]}"
+      }
+    }
+  }
+}
+
 # Virtual Network
+resource "volterra_virtual_network" "internal_networks" {
+  count                     = local.include_internal_gateway_routes
+  name                      = "${var.volterra_site_name}-internal-networks"
+  namespace                 = "system"
+  description               = "Routes inside ${var.volterra_site_name}"
+  site_local_inside_network = true
+  static_routes {
+    ip_prefixes = var.volterra_reachable_networks
+    ip_address  = var.volterra_reachable_networks_gateway
+    attrs       = ["ROUTE_ATTR_INSTALL_HOST", "ROUTE_ATTR_INSTALL_FORWARDING"]
+  }
+}
 
 # Network Connector
 resource "volterra_network_connector" "global" {
@@ -237,7 +276,8 @@ resource "volterra_network_connector" "global" {
 }
 
 # Fleet
-resource "volterra_fleet" "fleet" {
+resource "volterra_fleet" "fleet_dhcp_servers" {
+  count                    = local.include_dhcp_server
   name                     = var.volterra_site_name
   namespace                = "system"
   fleet_label              = var.volterra_fleet_label
@@ -259,6 +299,50 @@ resource "volterra_fleet" "fleet" {
   }
   network_connectors {
     name      = "${var.volterra_site_name}-global"
+    namespace = "system"
+    tenant    = data.volterra_namespace.system.tenant_name
+  }
+
+  inside_virtual_network {
+    name      = "${var.volterra_site_name}-internal-networks"
+    namespace = "system"
+    tenant    = data.volterra_namespace.system.tenant_name
+  }
+
+}
+
+# Fleet
+resource "volterra_fleet" "fleet_static_ips" {
+  count                    = local.static_ce_addresses
+  name                     = var.volterra_site_name
+  namespace                = "system"
+  fleet_label              = var.volterra_fleet_label
+  no_bond_devices          = true
+  no_dc_cluster_group      = true
+  disable_gpu              = true
+  logs_streaming_disabled  = true
+  default_storage_class    = true
+  no_storage_device        = true
+  no_storage_interfaces    = true
+  no_storage_static_routes = true
+  deny_all_usb             = true
+  interface_list {
+    dynamic "interfaces" {
+      for_each = range(var.metal_server_count * var.metal_ce_count)
+      content {
+        name      = "${var.volterra_site_name}-ce-${interfaces.key + 1}"
+        namespace = "system"
+        tenant    = data.volterra_namespace.system.tenant_name
+      }
+    }
+  }
+  network_connectors {
+    name      = "${var.volterra_site_name}-global"
+    namespace = "system"
+    tenant    = data.volterra_namespace.system.tenant_name
+  }
+  inside_virtual_network {
+    name      = "${var.volterra_site_name}-internal-networks"
     namespace = "system"
     tenant    = data.volterra_namespace.system.tenant_name
   }

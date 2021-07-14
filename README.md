@@ -35,7 +35,7 @@ In order to support the deployment of Volterra CE VMs across redudant Equinix Me
 
 ![Equinix Metal Deployment](./assets/equinix-metal-deployment.jpg)
 
-Each of the Equinix VLANs will have private (RFC1918) IPv4 address spaces configured via terraform variables. The external interface VLAN is managed by distributed IPAM services running on each Equinux Metal instance. The internal interface VLAN is managed by Volterra Network Interface configuration with the CEs supplying DHCPv4 addresses to the VLAN.
+Each of the Equinix VLANs will have private (RFC1918) IPv4 address spaces configured via terraform variables. The external interface VLAN is managed by distributed IPAM services running on each Equinux Metal instance. The internal interface VLAN is managed by Volterra Network Interface configuration with the CEs optionally supplying DHCPv4 addresses by setting the `volterra_internal_dhcp_hosts` (the number of DHCP leases to support) to a value greater than one (1).
 
 ![Equinix Metal IPv4 Subnets Deployment](./assets/equinix-metal-deployment-subnets.jpg)
 
@@ -73,4 +73,6 @@ The following terraform variables are supported:
 | `volterra_download_url` | The URL for the Volterra CE qcow2 disk image | optional | https://downloads.volterra.io/releases/images/2021-03-01/centos-7.2009.5-202103011045.qcow2 |
 | `volterra_external_cidr` | The external VLAN CIDR block to use | required | 192.168.122.0/24 |
 | `volterra_internal_cidr` | The internal VLAN CIDR block to use | required | 192.168.180.0/24 |
-| `volterra_internal_networks` | List of IPv4 subnets to add as site local inside reachable subnets |
+| `volterra_internal_dhcp_hosts` | The number of DHCPv4 host to support on the internal VLAN | 100 |
+| `volterra_internal_networks` | List of IPv4 subnets to add as site local inside reachable subnets | [] |
+| `volterra_internal_networks_gateway` | The next hop gateway address to reach the internal reachable subnet hosts | |
