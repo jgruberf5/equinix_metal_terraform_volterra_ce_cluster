@@ -37,6 +37,12 @@ In order to support the deployment of Volterra CE VMs across redudant Equinix Me
 
 Each of the Equinix VLANs will have private (RFC1918) IPv4 address spaces configured via terraform variables. The external interface VLAN is managed by distributed IPAM services running on each Equinux Metal instance. The internal interface VLAN is managed by Volterra Network Interface configuration with the CEs optionally supplying DHCPv4 addresses by setting the `volterra_internal_dhcp_hosts` (the number of DHCP leases to support) to a value greater than one (1).
 
+**At this time please always set the `volterra_internal_dhcp_hosts` to greater than one (1). There is [a notice in the Volterra API documentation](https://www.volterra.io/docs/api/network-interface) that:**
+
+```bash
+Currently, DHCP client should always be enabled, setting static address on a network interface is not supported.
+```
+
 ![Equinix Metal IPv4 Subnets Deployment](./assets/equinix-metal-deployment-subnets.jpg)
 
 The external IPv4 address space used for Volterra CE VMs will have 1:1 NAT applied for Internet access via Equinix Metal EIP attachement. An Equinix Metal reserved public network CIDR will be provisioned and attached to the appropriate Equinix Metal server as part of the terraform orchestration. Providing 1:1 EIP attachment to each CE VM provides the greatest connection diversity for the Equinix Metal bonded LACP hash and allows for Volterra TLS or IPSEC connectivity back to the Volterra SaaS.
