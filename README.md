@@ -57,7 +57,7 @@ This workspace uses both the Equinix Metal and Volterra terraform providers. Det
 
 [Volterra Terraform Provider](https://registry.terraform.io/providers/volterraedge/volterra/latest/docs)
 
-**This workspace also uses the Terraform `null_resource` and python3 scripting to poll and approve Volterra node registrations. This workspace requires a valid python3 runtime and core modules be installed. The easiest way to assure this workspace deploys is to use a stock Ubuntu, CentOS, RHEL, or Fedora instance with python3 and terraform installed.**
+**This workspace also uses the Terraform `null_resource` and python3 scripting to poll and approve Volterra node registrations. This workspace requires a valid python3 runtime and core modules installed. The easiest way to assure this workspace deploys is to use a stock Ubuntu, CentOS, RHEL, or Fedora instance with python3 and terraform installed.**
 ### Variables values
 The following terraform variables are supported:
 
