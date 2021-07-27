@@ -118,6 +118,11 @@ locals {
       "latitude"  = "37.5665",
       "longitude" = "126.9780"
     },
+    "sv" = {
+      # Silicon Valley
+      "latitude"  = "37.3751",
+      "longitude" = "-121.9887"
+    },
     "tr" = {
       # Toronto
       "latitude"  = "43.6532",
