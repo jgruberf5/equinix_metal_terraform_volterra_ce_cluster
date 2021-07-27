@@ -64,7 +64,7 @@ The following terraform variables are supported:
 | `metal_server_count` | The Equinix Metal server count, 1, or between 3..8  | required | 3 |
 | `metal_ce_count` | The number of Volterra CE instances per metal server, between 1..3  | required | 3 |
 | `metal_ssh_key_name` | The name of the project SSH key to inject for metal server access | required | |
-| `volterra_tenant` | The Volterra SaaS tenant name | required | |
+| `volterra_tenant` | The Volterra SaaS tenant name. This is also known as the company domain name. This value is used within the console login URL prior to the console.ves.volterra.io.  | required | |
 | `volterra_site_token` | The Volterra site token to register CE instances | required | |
 | `volterra_site_name` | The Volterra site name to use for registration | required |  |
 | `volterra_fleet_label` | The Volterra fleet label for the CE instance | required |  |
