@@ -383,6 +383,7 @@ data "template_file" "user_data" {
     internal_vlan_id   = metal_vlan.ce_internal_vlan.vxlan
     external_vlan_id   = metal_vlan.ce_external_vlan.vxlan
     ce_download_url    = var.volterra_download_url
+    ce_md5             = var.volterra_download_md5
     eips_cidr          = local.cidr_subnets[count.index]
   }
 }

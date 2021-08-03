@@ -163,6 +163,15 @@ variable "volterra_download_url" {
 }
 
 ##################################################################################
+# Volterra CE Download MD5 Sum
+##################################################################################
+variable "volterra_download_md5" {
+  type = string
+  default     = "d7e5d6a2c57c6f5b348b6e22faf89233"
+  description = "Volterra CE Download MD5 Sum"
+}
+
+##################################################################################
 # Volterra CE External Subnet CIDR
 ##################################################################################
 variable "volterra_external_cidr" {

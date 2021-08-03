@@ -289,6 +289,34 @@ write_files:
         echo "NM_CONTROLLED=no" >> /etc/sysconfig/network-scripts/ifcfg-$name
         systemctl restart network
       }
+      function download_ce_disk_image() {
+        local url=$1
+        local md5=$2
+        local output_file=/var/lib/libvirt/images/ce.qcow2
+        local success=0
+        local http_status_code=500
+        while [[ "$success" != "1" ]]
+        do
+            echo "Downloading CE image from $1"
+            http_status_code=$(curl --silent --retry 999 --retry-max-time 0 -o $output_file $url)
+            if [[ $http_status_code -gt 299 ]] ; then
+              echo "Download failed with status code: $http_status_code... retrying download"
+              rm -rf $output_file
+            else
+              if [[ ! -z "$md5" ]]; then
+                  echo "Validating CE image MD5 (should be: $md5)"
+                  downloaded_md5=$(md5sum $output_file|cut -d' ' -f1)
+                  if [[ "$downloaded_md5" == "$md5" ]]; then
+                      echo "Downloaded CE image MD5 sum verified"
+                      success=1
+                  else
+                      echo "Downloaded CE image has invalid MD5 sum: $downloaded_md5... retrying download"
+                      rm -rf $output_file
+                  fi
+              fi
+            fi
+        done
+      }
       #### HOST LEVEL CONFIGURATION ####
       # Load netstack modules
       modprobe 8021q
@@ -336,7 +364,7 @@ write_files:
       #### Internal Network ###
       create_vlan_bridge br-internal bond0 ${internal_vlan_id} $internal_host_ip $internal_prefix
       ### Download CE image
-      curl --retry 999 --retry-max-time 0 -o /var/lib/libvirt/images/ce.qcow2 ${ce_download_url}
+      download_ce_disk_image ${ce_download_url} ${ce_md5}
       #### GUEST LEVEL CONFIGURATION ####
       for i in $(seq ${ce_count})
       do
