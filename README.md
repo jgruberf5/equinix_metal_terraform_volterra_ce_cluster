@@ -96,6 +96,44 @@ $ python3 --version
 Python 3.8.10
 ```
 
+Securing Volterra API calls with TLS creates a need for the python pyopenssl module. Install the python dependencies.
+
+```bash
+$ pip3 install -r requirements.txt
+Collecting cffi==1.14.6
+  Using cached cffi-1.14.6-cp38-cp38-manylinux1_x86_64.whl (411 kB)
+Collecting cryptography==3.4.7
+  Using cached cryptography-3.4.7-cp36-abi3-manylinux2014_x86_64.whl (3.2 MB)
+Collecting pycparser==2.20
+  Using cached pycparser-2.20-py2.py3-none-any.whl (112 kB)
+Collecting pyOpenSSL==20.0.1
+  Using cached pyOpenSSL-20.0.1-py2.py3-none-any.whl (54 kB)
+Collecting six==1.16.0
+  Using cached six-1.16.0-py2.py3-none-any.whl (11 kB)
+Installing collected packages: pycparser, cffi, cryptography, six, pyOpenSSL
+Successfully installed cffi-1.14.6 cryptography-3.4.7 pyOpenSSL-20.0.1 pycparser-2.20 six-1.16.0
+```
+
+Of course if you want to run within a python virtual environment:
+
+```bash
+$ python3 -m venv .venv
+$ source .venv/bin/activate
+$(.venv) $ pip3 install -r requirements.txt
+Collecting cffi==1.14.6
+  Using cached cffi-1.14.6-cp38-cp38-manylinux1_x86_64.whl (411 kB)
+Collecting cryptography==3.4.7
+  Using cached cryptography-3.4.7-cp36-abi3-manylinux2014_x86_64.whl (3.2 MB)
+Collecting pycparser==2.20
+  Using cached pycparser-2.20-py2.py3-none-any.whl (112 kB)
+Collecting pyOpenSSL==20.0.1
+  Using cached pyOpenSSL-20.0.1-py2.py3-none-any.whl (54 kB)
+Collecting six==1.16.0
+  Using cached six-1.16.0-py2.py3-none-any.whl (11 kB)
+Installing collected packages: pycparser, cffi, cryptography, six, pyOpenSSL
+Successfully installed cffi-1.14.6 cryptography-3.4.7 pyOpenSSL-20.0.1 pycparser-2.20 six-1.16.0
+```
+
 Collect your Equinix API Token:
 
 ![Equinix API Token](./assets/equinix-api-token.jpg)
